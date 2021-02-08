@@ -22,6 +22,7 @@ class Thread
     friend class Alarm;                 // for lock()
     friend class System;                // for init()
     friend class IC;                    // for link() for priority ceiling
+    friend class Clerk<System>;         // for _statistics
 
 protected:
     static const bool smp = Traits<Thread>::smp;

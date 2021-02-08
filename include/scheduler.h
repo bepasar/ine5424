@@ -67,9 +67,13 @@ public:
         // Thread Execution Time
         TSC::Time_Stamp thread_execution_time;  // Sum of jobs execution time
         TSC::Time_Stamp last_thread_dispatch;   // The times tamp of the last dispatch
-
+        // On context-switch: execution time += TSC::timestamp() - last_dispatch
         // Migration Auxiliary
         unsigned int destination_cpu;
+
+        // ANN
+        float input[COUNTOF(Traits<Monitor>::PMU_EVENTS)+COUNTOF(Traits<Monitor>::SYSTEM_EVENTS)-1];
+        float output;
 
         // Deadline Miss count - Used By Clerk
         Alarm * alarm_times;            // Reference to RT_Thread private alarm (for monitoring pourposes)
@@ -194,6 +198,56 @@ public:
 
     using Variable_Queue_Scheduler::queue;
     static unsigned int current_queue() { return CPU::id(); }
+};
+
+// CPU Affinity
+class CPU_Affinity: public Priority, public Variable_Queue_Scheduler
+{
+    friend class _SYS::Clerk<System>;         // for _statistics
+
+public:
+    static const bool timed = true;
+    static const bool dynamic = false;
+    static const bool preemptive = true;
+    static const bool collecting = true;
+    static const bool charging = true;
+    static const bool awarding = true;
+    static const bool heuristic = true;
+    static const unsigned int QUEUES = Traits<Machine>::CPUS;
+
+    struct Statistics {
+        Statistics(): thread_execution_time(0), destination_cpu(ANY) {}
+
+        TSC::Time_Stamp thread_execution_time;                              // accumulated execution time (i.e. sum of all jobs)
+        unsigned int destination_cpu;                                       // for migrations
+
+        Alarm * alarm_times;                                                // reference to Periodic_Thread->_alarm for monitoring purposes
+        unsigned int finished_jobs;                                         // number of finished jobs (i.e. number of times Periodic_Thread->_alarm called Periodic_Thread->_semaphor->p() for this thread)
+        unsigned int missed_deadlines;                                      // number of missed deadlines (finished_jobs - number of dispatched jobs (i.e. Periodic_Thread->_alarm->_times))
+
+        static TSC::Time_Stamp _cpu_time[Traits<Build>::CPUS];              // accumulated cpu execution time in the current hyperperiod
+        static TSC::Time_Stamp _last_dispatch_time[Traits<Build>::CPUS];    // time stamp of last dispatch
+        static TSC::Time_Stamp _last_activation_time;                       // time stamp of the last heuristic activation
+
+        static unsigned int _least_used_cpu;                                // cpu with lowest execution time
+        static unsigned int _most_used_cpu;                                 // cpu with highest execution time
+    };
+
+public:
+    template <typename ... Tn>
+    CPU_Affinity(int p = NORMAL, unsigned int cpu = ANY, Tn & ... an)
+    : Priority(p), Variable_Queue_Scheduler(((_priority == IDLE) || (_priority == MAIN)) ? CPU::id() : (cpu != ANY) ? cpu : ++_next_queue %= CPU::cores()) {}
+
+    bool charge(bool end = false);
+    bool award(bool end = false);
+
+    volatile Statistics & statistics() { return _statistics; }
+
+    using Variable_Queue_Scheduler::queue;
+    static unsigned int current_queue() { return CPU::id(); }
+
+private:
+    Statistics _statistics;
 };
 
 __END_SYS

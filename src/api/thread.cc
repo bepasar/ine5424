@@ -3,6 +3,7 @@
 #include <machine.h>
 #include <system.h>
 #include <process.h>
+#include <clerk.h>
 
 // This_Thread class attributes
 __BEGIN_UTIL
