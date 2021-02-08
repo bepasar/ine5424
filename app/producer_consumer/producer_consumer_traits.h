@@ -13,7 +13,7 @@ template<> struct Traits<Build>: public Traits_Tokens
     static const unsigned int ARCHITECTURE = RV32;
     static const unsigned int MACHINE = RISCV;
     static const unsigned int MODEL = SiFive_E;
-    static const unsigned int CPUS = 1;
+    static const unsigned int CPUS = 2;
     static const unsigned int NODES = 1; // (> 1 => NETWORKING)
     static const unsigned int EXPECTED_SIMULATION_TIME = 60; // s (0 => not simulated)
 
@@ -129,6 +129,7 @@ template<> struct Traits<Thread>: public Traits<Build>
     static const bool trace_idle = hysterically_debugged;
     static const bool simulate_capacity = false;
 
+    typedef GRR Criterion;
     static const unsigned int QUANTUM = 10000; // us
 };
 
@@ -147,6 +148,19 @@ template<> struct Traits<Alarm>: public Traits<Build>
     static const bool visible = hysterically_debugged;
 };
 
+template<> struct Traits<Monitor>: public Traits<Build>
+{
+    static const bool enabled = monitored;
+
+    static constexpr System_Event SYSTEM_EVENTS[]                 = {ELAPSED_TIME, DEADLINE_MISSES, CPU_EXECUTION_TIME, THREAD_EXECUTION_TIME, RUNNING_THREAD};
+    static constexpr unsigned int SYSTEM_EVENTS_FREQUENCIES[]     = {           1,               1,                  1,                     1,              1}; // in Hz
+
+    static constexpr PMU_Event PMU_EVENTS[]                       = {COMMITED_INSTRUCTIONS, BRANCHES, CACHE_MISSES};
+    static constexpr unsigned int PMU_EVENTS_FREQUENCIES[]        = {                    1,        1,            1}; // in Hz
+
+    static constexpr unsigned int TRANSDUCER_EVENTS[]             = {CPU_VOLTAGE, CPU_TEMPERATURE};
+    static constexpr unsigned int TRANSDUCER_EVENTS_FREQUENCIES[] = {          1,           1}; // in Hz
+};
 
 __END_SYS
 
