@@ -14,13 +14,12 @@ template<> struct Traits<Build>: public Traits_Tokens
     static const unsigned int MACHINE = RISCV;
     static const unsigned int MODEL = SiFive_E;
     static const unsigned int CPUS = 4;
-
     static const unsigned int NODES = 1; // (> 1 => NETWORKING)
     static const unsigned int EXPECTED_SIMULATION_TIME = 60; // s (0 => not simulated)
 
     // Default flags
     static const bool enabled = true;
-    static const bool monitored = true;
+    static const bool monitored = false;
     static const bool debugged = true;
     static const bool hysterically_debugged = false;
 
@@ -116,7 +115,7 @@ template<> struct Traits<System>: public Traits<Build>
     static const unsigned long LIFE_SPAN = 1 * YEAR; // s
     static const unsigned int DUTY_CYCLE = 1000000; // ppm
 
-    static const bool reboot = false;
+    static const bool reboot = true;
 
     static const unsigned int STACK_SIZE = Traits<Machine>::STACK_SIZE;
     static const unsigned int HEAP_SIZE = (Traits<Application>::MAX_THREADS + 1) * Traits<Application>::STACK_SIZE;
@@ -131,11 +130,11 @@ template<> struct Traits<Thread>: public Traits<Build>
 {
     static const bool enabled = Traits<System>::multithread;
     static const bool smp = Traits<System>::multicore;
-    static const bool simulate_capacity = false;
     static const bool trace_idle = hysterically_debugged;
+    static const bool simulate_capacity = false;
 
-    typedef CPU_Affinity Criterion;
-    static const unsigned int QUANTUM = 10000; // us
+    typedef Fixed_CPU Criterion;
+    static const unsigned int QUANTUM = 100000; // us
 };
 
 template<> struct Traits<Scheduler<Thread>>: public Traits<Build>
