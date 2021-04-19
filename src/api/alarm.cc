@@ -12,7 +12,6 @@ volatile Alarm::Tick Alarm::_elapsed;
 Alarm::Queue Alarm::_request;
 Spin Alarm::_lock;
 
-
 Alarm::Alarm(const Microsecond & time, Handler * handler, unsigned int times)
 : _time(time), _handler(handler), _times(times), _ticks(ticks(time)), _link(this, _ticks)
 {
@@ -24,11 +23,11 @@ Alarm::Alarm(const Microsecond & time, Handler * handler, unsigned int times)
         _request.insert(&_link);
         unlock();
     } else {
+        assert(times == 1);
         unlock();
         (*handler)();
     }
 }
-
 
 Alarm::~Alarm()
 {

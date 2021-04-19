@@ -9,20 +9,25 @@
 #include <utility/handler.h>
 #include <scheduler.h>
 
-extern "C" { void __exit(); }
+extern "C" {
+    void __exit();
+    void _lock_heap();
+    void _unlock_heap();
+}
 
 __BEGIN_SYS
 
 class Thread
 {
-    friend class Init_First;            // context->load()
+    friend class Init_End;              // context->load()
     friend class Init_System;           // for init() on CPU != 0
     friend class Scheduler<Thread>;     // for link()
     friend class Synchronizer_Common;   // for lock() and sleep()
     friend class Alarm;                 // for lock()
     friend class System;                // for init()
     friend class IC;                    // for link() for priority ceiling
-    friend class Clerk<System>;         // for _statistics
+    friend void ::_lock_heap();         // for lock()
+    friend void ::_unlock_heap();       // for unlock()
 
 protected:
     static const bool smp = Traits<Thread>::smp;
@@ -48,7 +53,6 @@ public:
     // Thread Scheduling Criterion
     typedef Traits<Thread>::Criterion Criterion;
     enum {
-        ISR     = Criterion::ISR,
         HIGH    = Criterion::HIGH,
         NORMAL  = Criterion::NORMAL,
         LOW     = Criterion::LOW,
@@ -99,28 +103,17 @@ protected:
     Criterion & criterion() { return const_cast<Criterion &>(_link.rank()); }
     Queue::Element * link() { return &_link; }
 
-    Criterion begin_isr(IC::Interrupt_Id i) {
-        assert(_state == RUNNING);
-        Criterion c = criterion();
-        _link.rank(Criterion::ISR + int(i));
-        return c;
-    }
-    void end_isr(IC::Interrupt_Id i, const Criterion & c) {
-        assert(_state == RUNNING);
-        _link.rank(c);
-    }
-
     static Thread * volatile running() { return _scheduler.chosen(); }
 
-    static void lock() {
+    static void lock(Spin * lock = &_lock) {
         CPU::int_disable();
         if(smp)
-            _lock.acquire();
+            lock->acquire();
     }
 
-    static void unlock() {
+    static void unlock(Spin * lock = &_lock) {
         if(smp)
-            _lock.release();
+            lock->release();
         CPU::int_enable();
     }
 

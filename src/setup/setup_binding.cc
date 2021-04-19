@@ -1,16 +1,19 @@
-// EPOS System Binding
+// EPOS SETUP Binding
 
-#include <utility/spin.h>
 #include <machine.h>
-#include <process.h>
+
+__BEGIN_SYS
+
+OStream kout, kerr;
+
+__END_SYS
 
 extern "C" {
     __USING_SYS;
 
     // Libc legacy
     void _panic() { Machine::panic(); }
-    void _exit(int s) { Thread::exit(s); for(;;); }
-    void __exit() { Thread::exit(CPU::fr()); }  // must be handled by the Page Fault handler for user-level tasks
+    void _exit(int s) { db<Setup>(ERR) << "_exit(" << s << ") called!" << endl; for(;;); }
     void __cxa_pure_virtual() { db<void>(ERR) << "Pure Virtual method called!" << endl; }
 
     // Utility-related methods that differ from kernel and user space.
@@ -22,7 +25,7 @@ extern "C" {
 
         int me = CPU::id();
         int last = CPU::cas(_print_lock, -1, me);
-        for(int i = 0, owner = last; (i < 10) && (owner != me); i++, owner = CPU::cas(_print_lock, -1, me));
+        for(int i = 0, owner = last; (i < 1000) && (owner != me); i++, owner = CPU::cas(_print_lock, -1, me));
         if(last != me) {
             tag[1] = '0' + CPU::id();
             _print(tag);
@@ -40,21 +43,5 @@ extern "C" {
         if(error)
             _panic();
     }
-
-    // Heap
-    static Spin _heap_lock;
-    static volatile bool _cpu_int_disabled;
-    void _lock_heap() {
-        Thread::lock(&_heap_lock);
-//        bool int_disabled = CPU::int_disabled();
-//        CPU::int_disable();
-//        _heap_lock.acquire();
-//        _cpu_int_disabled = int_disabled;
-    }
-    void _unlock_heap() {
-        Thread::unlock(&_heap_lock);
-//        _heap_lock.release();
-//        if(!_cpu_int_disabled)
-//            CPU::int_enable();
-    }
 }
+

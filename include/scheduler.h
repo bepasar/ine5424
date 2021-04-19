@@ -25,27 +25,26 @@ class Scheduling_Criterion_Common
 public:
     // Priorities
     enum : int {
-        ISR    = -1000,
-            MAIN   = 0,
-            HIGH   = 1,
-            NORMAL = (unsigned(1) << (sizeof(int) * 8 - 1)) - 3,
-            LOW    = (unsigned(1) << (sizeof(int) * 8 - 1)) - 2,
-            IDLE   = (unsigned(1) << (sizeof(int) * 8 - 1)) - 1
+        MAIN   = 0,
+        HIGH   = 1,
+        NORMAL = (unsigned(1) << (sizeof(int) * 8 - 1)) - 3,
+        LOW    = (unsigned(1) << (sizeof(int) * 8 - 1)) - 2,
+        IDLE   = (unsigned(1) << (sizeof(int) * 8 - 1)) - 1
     };
 
     // Constructor helpers
     enum : unsigned int {
         SAME        = 0,
-            NOW         = 0,
-            UNKNOWN     = 0,
-            ANY         = -1U
+        NOW         = 0,
+        UNKNOWN     = 0,
+        ANY         = -1U
     };
 
     // Policy types
     enum : int {
         PERIODIC    = HIGH,
-            APERIODIC   = NORMAL,
-            SPORADIC    = NORMAL
+        APERIODIC   = NORMAL,
+        SPORADIC    = NORMAL
     };
 
     // Policy traits
@@ -65,25 +64,21 @@ public:
     // Runtime Statistics (for policies that don't use any; that´s why its a union)
     union Statistics {
         // Thread Execution Time
-        TSC::Time_Stamp thread_execution_time;  // Sum of jobs execution time
-        TSC::Time_Stamp last_thread_dispatch;   // The times tamp of the last dispatch
-        // On context-switch: execution time += TSC::timestamp() - last_dispatch
+        TSC::Time_Stamp thread_execution_time;  // accumulated thread execution time
+        TSC::Time_Stamp last_thread_dispatch;   // time stamp of last dispatch
+
         // Migration Auxiliary
         unsigned int destination_cpu;
 
-        // ANN
-        float input[COUNTOF(Traits<Monitor>::PMU_EVENTS)+COUNTOF(Traits<Monitor>::SYSTEM_EVENTS)-1];
-        float output;
-
         // Deadline Miss count - Used By Clerk
-        Alarm * alarm_times;            // Reference to RT_Thread private alarm (for monitoring pourposes)
-        unsigned int finished_jobs;     // Number of finished jobs  <=> times alarm->p() has been called for this task
-        unsigned int missed_deadlines;  // Number of finished jobs (finished_jobs) - number of dispatched jobs (alarm_times->times)
+        Alarm * alarm_times;                    // pointer to RT_Thread private alarm (for monitoring purposes)
+        unsigned int finished_jobs;             // number of finished jobs given by the number of times alarm->p() was called for this thread
+        unsigned int missed_deadlines;          // number of missed deadlines given by the number of finished jobs (finished_jobs) minus the number of dispatched jobs (alarm_times->times)
 
         // CPU Execution Time (capture ts)
-        static TSC::Time_Stamp _cpu_time[Traits<Build>::CPUS];              // accumulated cpu time at each hyperperiod
-        static TSC::Time_Stamp _last_dispatch_time[Traits<Build>::CPUS];         // Time Stamp of last dispatch
-        static TSC::Time_Stamp _last_activation_time;                       // Global Time Stamp of the last heuristic activation
+        static TSC::Time_Stamp _cpu_time[Traits<Build>::CPUS];              // accumulated CPU time in the current hyperperiod for each CPU
+        static TSC::Time_Stamp _last_dispatch_time[Traits<Build>::CPUS];    // time Stamp of last dispatch in each CPU
+        static TSC::Time_Stamp _last_activation_time;                       // global time stamp of the last heuristic activation
     };
 
 protected:
@@ -198,56 +193,6 @@ public:
 
     using Variable_Queue_Scheduler::queue;
     static unsigned int current_queue() { return CPU::id(); }
-};
-
-// CPU Affinity
-class CPU_Affinity: public Priority, public Variable_Queue_Scheduler
-{
-    friend class _SYS::Clerk<System>;         // for _statistics
-
-public:
-    static const bool timed = true;
-    static const bool dynamic = false;
-    static const bool preemptive = true;
-    static const bool collecting = true;
-    static const bool charging = true;
-    static const bool awarding = true;
-    static const bool heuristic = true;
-    static const unsigned int QUEUES = Traits<Machine>::CPUS;
-
-    struct Statistics {
-        Statistics(): thread_execution_time(0), destination_cpu(ANY) {}
-
-        TSC::Time_Stamp thread_execution_time;                              // accumulated execution time (i.e. sum of all jobs)
-        unsigned int destination_cpu;                                       // for migrations
-
-        Alarm * alarm_times;                                                // reference to Periodic_Thread->_alarm for monitoring purposes
-        unsigned int finished_jobs;                                         // number of finished jobs (i.e. number of times Periodic_Thread->_alarm called Periodic_Thread->_semaphor->p() for this thread)
-        unsigned int missed_deadlines;                                      // number of missed deadlines (finished_jobs - number of dispatched jobs (i.e. Periodic_Thread->_alarm->_times))
-
-        static TSC::Time_Stamp _cpu_time[Traits<Build>::CPUS];              // accumulated cpu execution time in the current hyperperiod
-        static TSC::Time_Stamp _last_dispatch_time[Traits<Build>::CPUS];    // time stamp of last dispatch
-        static TSC::Time_Stamp _last_activation_time;                       // time stamp of the last heuristic activation
-
-        static unsigned int _least_used_cpu;                                // cpu with lowest execution time
-        static unsigned int _most_used_cpu;                                 // cpu with highest execution time
-    };
-
-public:
-    template <typename ... Tn>
-    CPU_Affinity(int p = NORMAL, unsigned int cpu = ANY, Tn & ... an)
-    : Priority(p), Variable_Queue_Scheduler(((_priority == IDLE) || (_priority == MAIN)) ? CPU::id() : (cpu != ANY) ? cpu : ++_next_queue %= CPU::cores()) {}
-
-    bool charge(bool end = false);
-    bool award(bool end = false);
-
-    volatile Statistics & statistics() { return _statistics; }
-
-    using Variable_Queue_Scheduler::queue;
-    static unsigned int current_queue() { return CPU::id(); }
-
-private:
-    Statistics _statistics;
 };
 
 __END_SYS
