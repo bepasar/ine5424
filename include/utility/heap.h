@@ -46,13 +46,13 @@ public:
         if(bytes < sizeof(Element))
             bytes = sizeof(Element);
 
-        Element * e = search_decrementing(bytes);
+        Element * e = search_decrementing_bottomup(bytes);
         if(!e) {
             out_of_memory();
             return 0;
         }
 
-        int * addr = reinterpret_cast<int *>(e->object() + e->size());
+        int * addr = reinterpret_cast<int *>(e->object());
 
         if(typed)
             *addr++ = reinterpret_cast<int>(this);

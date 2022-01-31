@@ -1,0 +1,433 @@
+diff --git a/app/atividade7b/atividade7b.cc b/app/atividade7b/atividade7b.cc
+new file mode 100644
+index 0000000..05b3e4e
+--- /dev/null
++++ b/app/atividade7b/atividade7b.cc
+@@ -0,0 +1,100 @@
++#include <utility/ostream.h>
++#include <time.h>
++#include <real-time.h>
++
++using namespace EPOS;
++
++OStream cout;
++
++Chronometer chronometer;
++
++Periodic_Thread * thread_a;
++Periodic_Thread * thread_b;
++Periodic_Thread * thread_c; 
++
++int i = 0;
++char * scheduling;
++
++void meaningless_work()
++{
++    int end = 10000;
++
++    for (int i = 0; i < end; ++i)
++    {
++        for (int j = 0; j < end; ++j)
++        {
++            for (int k = 0; k < end; ++k)
++            {
++            }
++        }
++    }
++}
++
++int work(char thread_id)
++{
++    Microsecond t;
++    int jobs = 1; // jobs counter
++
++    do
++    {
++        t = chronometer.read(); // start_time
++
++        cout << i << ": thread_" << thread_id << " - job " << jobs << " -> start_time:  " << t << endl;
++        scheduling[i++] = thread_id;
++
++        meaningless_work();
++
++        t = chronometer.read(); // finish_time
++        cout << i << ": thread_" << thread_id << " - job " << jobs++ << " -> finish_time: " << t << endl;
++
++    } while (Periodic_Thread::wait_next());
++
++    return (int)t;
++}
++
++void RM_scheduling_test()
++{
++    const int period_a = 100000; // 100 ms
++    const int period_b = 150000; // 150 ms
++    const int period_c = 350000; // 350 ms
++
++    const int jobs_a = 10;
++    const int jobs_b = 7;
++    const int jobs_c = 4;
++
++    scheduling = new char[jobs_a + jobs_b + jobs_c];
++    char expected_scheduling[jobs_a + jobs_b + jobs_c] = {'A','B','C','A','B','A','B','A','C','A','B','A','B','A','C','A','B','A','B','A','C'};
++
++    thread_a = new Periodic_Thread(RTConf(period_a, period_a, 0, 0, jobs_a), &work, 'A');
++    thread_b = new Periodic_Thread(RTConf(period_b, period_b, 0, 0, jobs_b), &work, 'B');
++    thread_c = new Periodic_Thread(RTConf(period_c, period_c, 0, 0, jobs_c), &work, 'C');
++
++    cout << endl
++         << "Thread priorities:" << endl
++         << "thread_A: " << thread_a->priority() << endl
++         << "thread_B: " << thread_b->priority() << endl
++         << "thread_C: " << thread_c->priority() << endl
++         << endl;
++
++    cout << "Jobs timestamps:" << endl;
++    chronometer.start();
++
++    thread_a->join();
++    thread_b->join();
++    thread_c->join();
++
++    chronometer.stop();
++
++    cout << endl
++         << "Scheduling order:" << endl;
++    for (int n = 0; n < (jobs_a + jobs_b + jobs_c); n++) {
++        assert(scheduling[n] == expected_scheduling[n]);
++        cout << scheduling[n] << " -> ";
++    }
++}
++
++int main()
++{
++    RM_scheduling_test();
++    return 0;
++}
+\ No newline at end of file
+diff --git a/app/atividade7b/atividade7b_traits.h b/app/atividade7b/atividade7b_traits.h
+new file mode 100644
+index 0000000..5c6b4f5
+--- /dev/null
++++ b/app/atividade7b/atividade7b_traits.h
+@@ -0,0 +1,154 @@
++#ifndef __traits_h
++#define __traits_h
++
++#include <system/config.h>
++
++__BEGIN_SYS
++
++// Build
++template<> struct Traits<Build>: public Traits_Tokens
++{
++    // Basic configuration
++    static const unsigned int MODE = LIBRARY;
++    static const unsigned int ARCHITECTURE = ARMv7;
++    static const unsigned int MACHINE = Cortex;
++    static const unsigned int MODEL = Raspberry_Pi3;
++    static const unsigned int CPUS = 1;
++    static const unsigned int NODES = 1; // (> 1 => NETWORKING)
++    static const unsigned int EXPECTED_SIMULATION_TIME = 60; // s (0 => not simulated)
++
++    // Default flags
++    static const bool enabled = true;
++    static const bool monitored = false;
++    static const bool debugged = true;
++    static const bool hysterically_debugged = false;
++
++    // Default aspects
++    typedef ALIST<> ASPECTS;
++};
++
++
++// Utilities
++template<> struct Traits<Debug>: public Traits<Build>
++{
++    static const bool error   = true;
++    static const bool warning = true;
++    static const bool info    = false;
++    static const bool trace   = false;
++};
++
++template<> struct Traits<Lists>: public Traits<Build>
++{
++    static const bool debugged = hysterically_debugged;
++};
++
++template<> struct Traits<Spin>: public Traits<Build>
++{
++    static const bool debugged = hysterically_debugged;
++};
++
++template<> struct Traits<Heaps>: public Traits<Build>
++{
++    static const bool debugged = hysterically_debugged;
++};
++
++template<> struct Traits<Observers>: public Traits<Build>
++{
++    // Some observed objects are created before initializing the Display
++    // Enabling debug may cause trouble in some Machines
++    static const bool debugged = false;
++};
++
++
++// System Parts (mostly to fine control debugging)
++template<> struct Traits<Boot>: public Traits<Build>
++{
++};
++
++template<> struct Traits<Setup>: public Traits<Build>
++{
++};
++
++template<> struct Traits<Init>: public Traits<Build>
++{
++};
++
++template<> struct Traits<Framework>: public Traits<Build>
++{
++};
++
++template<> struct Traits<Aspect>: public Traits<Build>
++{
++    static const bool debugged = hysterically_debugged;
++};
++
++
++__END_SYS
++
++// Mediators
++#include __ARCHITECTURE_TRAITS_H
++#include __MACHINE_TRAITS_H
++
++__BEGIN_SYS
++
++
++// API Components
++template<> struct Traits<Application>: public Traits<Build>
++{
++    static const unsigned int STACK_SIZE = Traits<Machine>::STACK_SIZE;
++    static const unsigned int HEAP_SIZE = Traits<Machine>::HEAP_SIZE;
++    static const unsigned int MAX_THREADS = Traits<Machine>::MAX_THREADS;
++};
++
++template<> struct Traits<System>: public Traits<Build>
++{
++    static const unsigned int mode = Traits<Build>::MODE;
++    static const bool multithread = (Traits<Build>::CPUS > 1) || (Traits<Application>::MAX_THREADS > 1);
++    static const bool multitask = (mode != Traits<Build>::LIBRARY);
++    static const bool multicore = (Traits<Build>::CPUS > 1) && multithread;
++    static const bool multiheap = multitask || Traits<Scratchpad>::enabled;
++
++    static const unsigned long LIFE_SPAN = 1 * YEAR; // s
++    static const unsigned int DUTY_CYCLE = 1000000; // ppm
++
++    static const bool reboot = true;
++
++    static const unsigned int STACK_SIZE = Traits<Machine>::STACK_SIZE;
++    static const unsigned int HEAP_SIZE = (Traits<Application>::MAX_THREADS + 1) * Traits<Application>::STACK_SIZE;
++};
++
++template<> struct Traits<Task>: public Traits<Build>
++{
++    static const bool enabled = Traits<System>::multitask;
++};
++
++template<> struct Traits<Thread>: public Traits<Build>
++{
++    static const bool enabled = Traits<System>::multithread;
++    static const bool smp = Traits<System>::multicore;
++    static const bool trace_idle = hysterically_debugged;
++    static const bool simulate_capacity = false;
++
++    typedef RM Criterion;
++    static const unsigned int QUANTUM = 10000; // us
++};
++
++template<> struct Traits<Scheduler<Thread>>: public Traits<Build>
++{
++    static const bool debugged = Traits<Thread>::trace_idle || hysterically_debugged;
++};
++
++template<> struct Traits<Synchronizer>: public Traits<Build>
++{
++    static const bool enabled = Traits<System>::multithread;
++};
++
++template<> struct Traits<Alarm>: public Traits<Build>
++{
++    static const bool visible = hysterically_debugged;
++};
++
++
++__END_SYS
++
++#endif
+diff --git a/app/atividade7b/makefile b/app/atividade7b/makefile
+new file mode 100644
+index 0000000..8a6578a
+--- /dev/null
++++ b/app/atividade7b/makefile
+@@ -0,0 +1,17 @@
++# EPOS Application Makefile
++
++include ../../makedefs
++
++all: install
++
++$(APPLICATION):	$(APPLICATION).o $(LIB)/*
++		$(ALD) $(ALDFLAGS) -o $@ $(APPLICATION).o
++
++$(APPLICATION).o: $(APPLICATION).cc $(SRC)
++		$(ACC) $(ACCFLAGS) -o $@ $<
++
++install: $(APPLICATION)
++		$(INSTALL) $(APPLICATION) $(IMG)
++
++clean:
++		$(CLEAN) *.o $(APPLICATION)
+diff --git a/include/scheduler.h b/include/scheduler.h
+index 99bfd36..8e011ac 100644
+--- a/include/scheduler.h
++++ b/include/scheduler.h
+@@ -119,6 +119,47 @@ protected:
+     volatile int _priority;
+ };
+ 
++class Real_Time_Scheduler_Common: public Priority
++{
++protected:
++    template<typename ... Tn>
++    Real_Time_Scheduler_Common(int p, Tn & ... an): Priority(p ? p : 1) {}
++
++    template<typename ... Tn>
++    Real_Time_Scheduler_Common(int p, const Microsecond & period, const Microsecond & deadline):
++    Priority(p ? p : 1), _deadline(deadline ? deadline : period), _period(period) {}
++
++    Microsecond _period;
++    Microsecond _deadline;
++
++public:
++    const Microsecond period() { return _period; }
++    void period(const Microsecond & p) { _period = p; }
++
++    const Microsecond deadline() { return _deadline; }
++};
++
++
++class RM: public Real_Time_Scheduler_Common {
++public:
++    static const bool timed = true;
++    static const bool dynamic = false;
++    static const bool preemptive = true;
++
++public:
++    template<typename ... Tn>
++    RM(int p = NORMAL, Tn & ... an): Real_Time_Scheduler_Common(p) {}
++
++    template<typename ... Tn>
++    RM(int p, const Microsecond & period): 
++    Real_Time_Scheduler_Common(p, period, period) {}
++    
++    template<typename ... Tn>
++    RM(int p, const Microsecond & period, const Microsecond & deadline): 
++    Real_Time_Scheduler_Common(p, period, deadline) {}
++};
++
++
+ // Round-Robin
+ class RR: public Priority
+ {
+diff --git a/include/time.h b/include/time.h
+index 8608ce0..4083e7e 100644
+--- a/include/time.h
++++ b/include/time.h
+@@ -34,6 +34,7 @@ class Alarm
+     friend class Alarm_Chronometer;             // for elapsed()
+     friend class Periodic_Thread;               // for ticks(), times(), and elapsed()
+     friend class FCFS;                          // for ticks() and elapsed()
++    friend class RM;
+ 
+ private:
+     typedef Timer_Common::Tick Tick;
+diff --git a/include/utility/heap.h b/include/utility/heap.h
+index 3a786c0..c16b50c 100644
+--- a/include/utility/heap.h
++++ b/include/utility/heap.h
+@@ -46,13 +46,13 @@ public:
+         if(bytes < sizeof(Element))
+             bytes = sizeof(Element);
+ 
+-        Element * e = search_decrementing(bytes);
++        Element * e = search_decrementing_bottomup(bytes);
+         if(!e) {
+             out_of_memory();
+             return 0;
+         }
+ 
+-        int * addr = reinterpret_cast<int *>(e->object() + e->size());
++        int * addr = reinterpret_cast<int *>(e->object());
+ 
+         if(typed)
+             *addr++ = reinterpret_cast<int>(this);
+diff --git a/include/utility/list.h b/include/utility/list.h
+index ccc8954..98615ca 100644
+--- a/include/utility/list.h
++++ b/include/utility/list.h
+@@ -1355,8 +1355,20 @@ public:
+         return e;
+     }
+ 
++    // Since we are now allocating bottom up, we must be careful to not touch the
++    // lower addresses of the memory. Now we take the tail, which is put there by
++    // the free, so we know it is a valid addres to try and allocate.
++    Element * search_size_bottomup(unsigned int s) {
++        Element * e = tail();
++        if(sizeof(Object_Type) < sizeof(Element))
++            for(; e && (e->size() < sizeof(Element) / sizeof(Object_Type) + s) && (e->size() != s); e = e->prev());
++        else
++            for(; e && (e->size() < s); e = e->prev());
++        return e;
++    }
++
+     void insert_merging(Element * e, Element ** m1, Element ** m2) {
+-        db<Lists>(TRC) << "Grouping_List::insert_merging(e=" << e << ")" << endl;
++        db<Lists>(TRC) << "Grouping_List::insert_merging(e=" << e << ", e->size()=" << e->size() << ")" << endl;
+ 
+         _grouped_size += e->size();
+         *m1 = *m2 = 0;
+@@ -1392,6 +1404,32 @@ public:
+         return e;
+     }
+ 
++    Element * search_decrementing_bottomup(unsigned int s) {
++        db<Lists>(TRC) << "Grouping_List::search_decrementing_bottomup(s=" << s << ")" << endl;
++        print_head();
++        print_tail();
++
++        assert(s >= sizeof(Element));
++
++        Element * e = search_size_bottomup(s);
++        Element * new_element = e;  // new free memory block
++        Object_Type * e_ptr = e->object();
++
++        if(e) {
++            e_ptr += s; // base of the memory block now must move upwards in each allocation
++            new_element = new (e_ptr) Element(e_ptr, e->size() - s);    // create new block in the correct address
++            _grouped_size -= s;
++            e->size(s);
++            remove(e);  // no longer a allocable memory block
++            if(new_element->size()) // insert only if there is space left to use
++                insert_tail(new_element);   // since we changed the search direction we add this to the tail end
++
++        }
++
++        return e;
++    }
++
++
+ private:
+     Element * search_left(const Object_Type * obj) {
+         Element * e = head();
