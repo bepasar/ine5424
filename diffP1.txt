@@ -1,0 +1,2209 @@
+diff --git a/app/hello/hello_traits.h b/app/hello/hello_traits.h
+index 77a3de8..39f4b4c 100644
+--- a/app/hello/hello_traits.h
++++ b/app/hello/hello_traits.h
+@@ -9,8 +9,8 @@ __BEGIN_SYS
+ template<> struct Traits<Build>: public Traits_Tokens
+ {
+     // Basic configuration
+-    static const unsigned int MODE = LIBRARY;
+-    static const unsigned int ARCHITECTURE = ARMv7;
++    static const unsigned int MODE = BUILTIN;
++    static const unsigned int ARCHITECTURE = ARMv8;
+     static const unsigned int MACHINE = Cortex;
+     static const unsigned int MODEL = Raspberry_Pi3;
+     static const unsigned int CPUS = 1;
+diff --git a/include/architecture/armv8/armv8_cpu.h b/include/architecture/armv8/armv8_cpu.h
+new file mode 100644
+index 0000000..c30515a
+--- /dev/null
++++ b/include/architecture/armv8/armv8_cpu.h
+@@ -0,0 +1,569 @@
++// EPOS ARMv8 CPU Mediator Declarations
++
++#ifndef __armv8_h
++#define __armv8_h
++
++#include <architecture/cpu.h>
++
++__BEGIN_SYS
++
++class ARMv8: protected CPU_Common
++{
++    friend class Init_System; // for CPU::init()
++
++protected:
++    static const bool multicore = Traits<System>::multicore;
++    static const bool multitask = Traits<System>::multitask;
++
++public:
++    // CPU Native Data Types
++    using CPU_Common::Reg8;
++    using CPU_Common::Reg16;
++    using CPU_Common::Reg32;
++    using CPU_Common::Reg64;
++    using CPU_Common::Reg;
++    using CPU_Common::Log_Addr;
++    using CPU_Common::Phy_Addr;
++
++    class Context
++    {
++    public:
++        Context() {}
++        Context(Log_Addr usp, Log_Addr ulr, Reg flags, Log_Addr  lr, Log_Addr pc): _usp(usp), _ulr(ulr), _flags(flags), _lr(lr), _pc(pc) {
++            if(Traits<Build>::hysterically_debugged || Traits<Thread>::trace_idle) {
++                _r0 = 0; _r1 = 1; _r2 = 2; _r3 = 3; _r4 = 4; _r5 = 5; _r6 = 6; _r7 = 7; _r8 = 8; _r9 = 9; _r10 = 10; _r11 = 11; _r12 = 12;
++            }
++        }
++
++    public:
++        Reg _usp;     // usp (only used in multitasking)
++        Reg _ulr;     // ulr (only used in multitasking)
++        Reg _flags;
++        Reg _r0;
++        Reg _r1;
++        Reg _r2;
++        Reg _r3;
++        Reg _r4;
++        Reg _r5;
++        Reg _r6;
++        Reg _r7;
++        Reg _r8;
++        Reg _r9;
++        Reg _r10;
++        Reg _r11;
++        Reg _r12;
++        Reg _lr;
++        Reg _pc;
++    };
++
++    // Interrupt Service Routines
++    typedef void (* ISR)();
++
++    // Fault Service Routines (exception handlers)
++    typedef void (* FSR)();
++
++protected:
++    ARMv8() {};
++
++public:
++    static Log_Addr pc() { Reg r; ASM("nop"); return r; } // due to RISC pipelining, PC is read with a +8 (4 for thumb) offset
++
++    static Log_Addr sp() { Reg r; ASM("nop"); return r; }
++    static void sp(Log_Addr sp) { ASM("nop"); ASM("nop"); }
++
++    static Reg fr() { Reg r; ASM("nop"); return r; }
++    static void fr(Reg r) {  ASM("nop"); }
++
++    static Log_Addr ra() { Reg r; ASM("nop"); return r; } // due to RISC pipelining, PC is read with a +8 (4 for thumb) offset
++
++    static void halt() { ASM("nop"); }
++
++    template<typename T>
++    static T tsl(volatile T & lock) {
++        register T old;
++        /*register T one = 1;*/ //TODO
++        ASM("nop");
++        return old;
++    }
++
++    template<typename T>
++    static T finc(volatile T & value) {
++        register T old;
++        if(sizeof(T) == sizeof(Reg8))
++            ASM("nop");
++        else if(sizeof(T) == sizeof(Reg16))
++            ASM("nop");
++        else
++            ASM("nop");
++        return old - 1;
++    }
++
++    template<typename T>
++    static T fdec(volatile T & value) {
++        register T old;
++        if(sizeof(T) == sizeof(Reg8))
++            ASM("nop");
++        else if(sizeof(T) == sizeof(Reg16))
++            ASM("nop");
++        else
++            ASM("nop");
++        return old + 1;
++    }
++
++    template <typename T>
++    static T cas(volatile T & value, T compare, T replacement) {
++        register T old;
++        if(sizeof(T) == sizeof(Reg8))
++            ASM("nop");
++        else if(sizeof(T) == sizeof(Reg16))
++            ASM("nop");
++        else
++            ASM("nop");
++        return old;
++    }
++
++    // ARMv8 specifics
++    static Reg r0() { Reg r /*TODO*/ = 0; ASM("nop"); return r; }
++    static void r0(Reg r) { ASM("nop"); }
++
++    static Reg r1() { Reg r /*TODO*/ = 0; ASM("nop"); return r; }
++    static void r1(Reg r) { ASM("nop"); }
++
++    static Reg sctlr() { Reg r /*TODO*/ = 0; ASM("nop"); return r; }
++    static void sctlr(Reg r) {  ASM("nop"); }
++
++    static Reg actlr() { Reg r /*TODO*/ = 0; ASM("nop"); return r; }
++    static void actlr(Reg r) {  ASM("nop"); }
++
++    static void dsb() { ASM("nop"); }
++    static void isb() { ASM("nop"); }
++
++    static void svc() { ASM("nop"); }
++};
++
++class ARMv8_M: public ARMv8
++{
++public:
++    static const bool thumb = true;
++
++    // CPU Flags
++    typedef Reg Flags;
++    enum {
++        FLAG_THUMB      = 1 << 24,      // Thumb state
++        FLAG_Q          = 1 << 27,      // DSP Overflow
++        FLAG_V          = 1 << 28,      // Overflow
++        FLAG_C          = 1 << 29,      // Carry
++        FLAG_Z          = 1 << 30,      // Zero
++        FLAG_N          = 1 << 31       // Negative
++    };
++
++    // Exceptions
++    typedef Reg Exception_Id;
++    enum {                      // Priority
++        EXC_RESET       = 1,    // -3 (highest)
++        EXC_NMI         = 2,    // -2
++        EXC_HARD        = 3,    // -1
++        EXC_MPU         = 4,    // programmable
++        EXC_BUS         = 5,    // programmable
++        EXC_USAGE       = 6,    // programmable
++        EXC_SVCALL      = 11,   // programmable
++        EXC_DEBUG       = 12,   // programmable
++        EXC_PENDSV      = 14,   // programmable
++        EXC_SYSTICK     = 15    // programmable
++    };
++
++    // CPU Context
++    class Context: public ARMv8::Context
++    {
++    public:
++        Context() {}
++        Context(Log_Addr entry, Log_Addr exit, Log_Addr usp): ARMv8::Context(usp, exit | thumb, FLAG_THUMB, exit | thumb, entry | thumb) {}
++    };
++
++protected:
++    ARMv8_M() {};
++
++public:
++    static unsigned int id() { return 0; }
++    static unsigned int cores() { return 1; }
++
++    static void int_enable()  { ASM("nop"); }
++    static void int_disable() { ASM("nop"); }
++    static bool int_enabled() { return !int_disabled(); }
++    static bool int_disabled() {
++        bool disabled;
++        ASM("nop");
++        return disabled;
++    }
++
++    static void smp_barrier(unsigned long cores = cores()) { assert(cores == 1); }
++
++    static Reg pd() { return 0; }       // no MMU
++    static void pd(Reg r) {}            // no MMU
++
++    static void flush_tlb() {}          // no MMU
++    static void flush_tlb(Reg r) {}     // no MMU
++
++    // ARMv8-M specifics
++    static Flags flags() { Reg r; ASM("nop"); return r; }
++    static void flags(Flags r) {  ASM("nop"); }
++
++    static void psr_to_r12() { ASM("nop"); }
++    static void r12_to_psr() {  ASM("nop"); }
++};
++
++class ARMv8_A: public ARMv8
++{
++public:
++    static const bool thumb = false;
++
++    // CPU Flags
++    typedef Reg Flags;
++    enum {
++        FLAG_M          = 0x1f << 0,       // Processor Mode (5 bits)
++        FLAG_T          = 1    << 5,       // Thumb state
++        FLAG_F          = 1    << 6,       // FIQ disable
++        FLAG_I          = 1    << 7,       // IRQ disable
++        FLAG_A          = 1    << 8,       // Imprecise Abort disable
++        FLAG_E          = 1    << 9,       // Endianess (0 ->> little, 1 -> big)
++        FLAG_GE         = 0xf  << 16,      // SIMD Greater than or Equal (4 bits)
++        FLAG_J          = 1    << 24,      // Jazelle state
++        FLAG_Q          = 1    << 27,      // Underflow and/or DSP saturation
++        FLAG_V          = 1    << 28,      // Overflow
++        FLAG_C          = 1    << 29,      // Carry
++        FLAG_Z          = 1    << 30,      // Zero
++        FLAG_N          = 1    << 31,      // Negative
++
++        // FLAG_M values
++        MODE_USR        = 0x10,
++        MODE_FIQ        = 0x11,
++        MODE_IRQ        = 0x12,
++        MODE_SVC        = 0x13,
++        MODE_ABORT      = 0x17,
++        MODE_UNDEFINED  = 0x1b,
++        MODE_SYS        = 0x1f
++    };
++
++    // Exceptions
++    typedef Reg Exception_Id;
++    enum {
++        EXC_START                   = 1,
++        EXC_UNDEFINED_INSTRUCTION   = 2,
++        EXC_SWI                     = 3,
++        EXC_PREFETCH_ABORT          = 4,
++        EXC_DATA_ABORT              = 5,
++        EXC_RESERVED                = 6,
++        EXC_IRQ                     = 7,
++        EXC_FIQ                     = 8
++    };
++
++    enum {
++        CLI_DOMAIN = 0x55555555, // 0b01 - Client, all memory domains check for memory access permission
++        MNG_DOMAIN = 0xFFFFFFFF  // 0b11 - Manager, memory access permissions are not checked
++    };
++
++    // SCTLR bits
++    enum {
++        MMU_ENABLE  = 1 << 0,  // MMU enable
++        DCACHE      = 1 << 2,  // Data cache enable
++        BRANCH_PRED = 1 << 11, // Z bit, branch prediction enable
++        ICACHE      = 1 << 12, // Instruction cache enable
++        AFE         = 1 << 29  // Access Flag enable
++    };
++
++    // ACTLR bits
++    enum {
++        DCACHE_PREFE = 1 << 2, // DCache prefetch Enabled
++        SMP          = 1 << 6 // SMP bit
++    };
++
++    // CPU Context
++    class Context: public ARMv8::Context
++    {
++    public:
++        Context() {}
++        Context(Log_Addr entry, Log_Addr exit, Log_Addr usp): ARMv8::Context(usp, exit | thumb, multitask ? (usp ? MODE_USR : MODE_SVC) : MODE_SVC, exit | thumb, entry | thumb) {}
++    };
++
++protected:
++    ARMv8_A() {};
++
++public:
++    static Flags flags() { return cpsr(); }
++    static void flags(Flags flags) { cpsr(flags); }
++
++    static unsigned int id() {
++        Reg id;
++        id = 13; // TODO
++        ASM("nop");
++        return id & 0x3;
++    }
++
++    static unsigned int cores() {
++        if(Traits<Build>::MODEL == Traits<Build>::Raspberry_Pi3) {
++            return Traits<Build>::CPUS;
++        } else {
++            Reg n;
++            ASM("nop");
++            return (n & 0x3) + 1;
++        }
++    }
++
++    static void int_enable() {  flags(flags() & ~(FLAG_F | FLAG_I)); }
++    static void int_disable() { flags(flags() | (FLAG_F | FLAG_I)); }
++
++    static bool int_enabled() { return !int_disabled(); }
++    static bool int_disabled() { return flags() & (FLAG_F | FLAG_I); }
++
++    static void smp_barrier(unsigned long cores = cores()) { CPU_Common::smp_barrier<&finc>(cores, id()); }
++
++    static void fpu_save() {    ASM("nop"); }
++    static void fpu_restore() { ASM("nop"); }
++
++    // ARMv8-A specifics
++    static Reg cpsr() { Reg r /*TODO*/ = 0; ASM("nop"); return r; }
++    static void cpsr(Reg r) { ASM("nop"); }
++
++    static Reg cpsrc() { Reg r /*TODO*/ = 0; ASM("nop"); return r; }
++    static void cpsrc(Reg r) { ASM("nop"); }
++
++    static void psr_to_r12() { ASM("nop"); }
++    static void r12_to_psr() { ASM("nop"); }
++
++    static void save_regs(bool ret = false) {
++        if(ret)
++            ASM("nop");
++        else
++            ASM("nop");
++    }
++
++    static void restore_regs(bool ret = false) {
++        if(ret)
++            ASM("nop");  // including PC in ldmfd cause a mode change to the mode given by PSR (the mode the CPU was before the interrupt)
++        else
++            ASM("nop");
++    }
++
++    static void mode(unsigned int m) { ASM("nop"); }
++
++    static void svc_enter(unsigned int from, bool ret = true) {
++        mode(MODE_SVC);                 // go to SVC mode to save context
++        save_regs(ret);                 // save current context (lr, sp and spsr are banked registers)
++        mode(from);                     // go back to mode "from" to recover LR and PSR
++        ASM("nop");          // r1 = return address when entering mode "from"
++        ASM("nop");            // r2 = "from"_spsr (to be visible at SVC)
++        mode(MODE_SVC);                 // go to SVC mode once again
++        if(ret) {                       // if we will return, then
++            ASM("nop");   // overwrite the saved PC with r1, which contains the recovered return address
++            ASM("nop");           // push the recovered PSR
++        }
++        // upon return, r1 (LR) and r2 (PSR) are preserved and can be further used
++    }
++
++    static void svc_leave() {
++        ASM("nop");            // pop saved mode "from" PSR into SVC_spsr
++        ASM("nop");
++        restore_regs(true);              // restore the context, eventually changing back to "from" mode and jumping to the saved return address
++    }
++
++    static void svc_stay() { restore_regs(false); }
++
++    static Reg elr_hyp() { Reg r; ASM("nop"); return r; }
++    static void elr_hyp(Reg r) { ASM("nop"); }
++
++    static void ldmia() { ASM("nop"); }
++    static void stmia() { ASM("nop"); }
++
++    // CP15 operations
++    static Reg ttbr0() { Reg r; r = 2; /*TODO remover atrib*/ ASM ("nop"); return r; }
++    static void ttbr0(Reg r) {  ASM ("nop"); }
++
++    static Reg ttbcr() { Reg r; ASM ("nop"); return r; }
++    static void ttbcr(Reg r) {  ASM ("nop"); }
++
++    static Reg dacr() { Reg r; ASM ("nop"); return r; }
++    static void dacr(Reg r) {  ASM ("nop"); }
++
++    static Reg pd() { return ttbr0(); }
++    static void pd(Reg r) {  ttbr0(r); }
++
++    static void flush_tlb() {      ASM("nop"); } // TLBIALL - invalidate entire unifed TLB
++    static void flush_tlb(Reg r) { ASM("nop"); }
++
++    static void flush_branch_predictors() { ASM("nop"); }
++
++    static void flush_caches() {
++        ASM("nop");
++    }
++
++    static void enable_fpu() {
++        // This code assumes a compilation with mfloat-abi=hard and does not care for context switches
++        ASM("nop");
++    }
++
++};
++
++#ifndef __armv7_h
++
++class CPU: public SWITCH<Traits<Build>::MODEL, CASE<Traits<Build>::eMote3, ARMv8_M, CASE<Traits<Build>::LM3S811, ARMv8_M, CASE<DEFAULT, ARMv8_A>>>>::Result
++{
++    friend class Init_System;
++
++private:
++    typedef SWITCH<Traits<Build>::MODEL, CASE<Traits<Build>::eMote3, ARMv8_M, CASE<Traits<Build>::LM3S811, ARMv8_M, CASE<DEFAULT, ARMv8_A>>>>::Result Base;
++
++public:
++    // CPU Native Data Types
++    using ARMv8::Reg8;
++    using ARMv8::Reg16;
++    using ARMv8::Reg32;
++    using ARMv8::Reg64;
++    using ARMv8::Reg;
++    using ARMv8::Log_Addr;
++    using ARMv8::Phy_Addr;
++
++    // CPU Context
++    class Context: public Base::Context
++    {
++    public:
++        Context() {}
++        Context(Log_Addr entry, Log_Addr exit, Log_Addr usp): Base::Context(entry, exit, usp) {}
++
++        void save() volatile;  //__attribute__ ((naked));
++        void load() const volatile;
++
++        friend Debug & operator<<(Debug & db, const Context & c) {
++            db << hex
++               << "{r0="  << c._r0
++               << ",r1="  << c._r1
++               << ",r2="  << c._r2
++               << ",r3="  << c._r3
++               << ",r4="  << c._r4
++               << ",r5="  << c._r5
++               << ",r6="  << c._r6
++               << ",r7="  << c._r7
++               << ",r8="  << c._r8
++               << ",r9="  << c._r9
++               << ",r10=" << c._r10
++               << ",r11=" << c._r11
++               << ",r12=" << c._r12
++               << ",sp="  << &c
++               << ",lr="  << c._lr
++               << ",pc="  << c._pc
++               << ",psr=" << c._flags
++               << ",usp=" << c._usp
++               << ",ulr=" << c._ulr
++               << "}" << dec;
++            return db;
++        }
++    };
++
++public:
++    CPU() {}
++
++    using ARMv8::pc;
++    using ARMv8::ra;
++    using ARMv8::sp;
++    using ARMv8::fr;
++
++    using Base::id;
++    using Base::cores;
++
++    static Hertz clock() { return _cpu_clock; }
++    static void clock(const Hertz & frequency); // defined along with each machine's IOCtrl
++    static Hertz max_clock();
++    static Hertz min_clock();
++    static Hertz bus_clock() { return _bus_clock; }
++
++    using Base::int_enable;
++    using Base::int_disable;
++    using Base::int_enabled;
++    using Base::int_disabled;
++
++    using ARMv8::halt;
++
++    using Base::fpu_save;
++    using Base::fpu_restore;
++
++    using ARMv8::tsl;
++    using ARMv8::finc;
++    using ARMv8::fdec;
++    using ARMv8::cas;
++
++    static void switch_context(Context ** o, Context * n); //__attribute__ ((naked));
++
++    template<typename ... Tn>
++    static Context * init_stack(Log_Addr usp, Log_Addr sp, void (* exit)(), int (* entry)(Tn ...), Tn ... an) {
++        sp -= sizeof(Context);
++        Context * ctx = new(sp) Context(entry, exit, usp); // init_stack is called with usp = 0 for kernel threads
++        init_stack_helper(&ctx->_r0, an ...);
++        return ctx;
++    }
++
++    // In ARMv8, the main thread of each task gets parameters over registers, not the stack, and they are initialized by init_stack.
++    template<typename ... Tn>
++    static Log_Addr init_user_stack(Log_Addr usp, void (* exit)(), Tn ... an) { return usp; }
++
++    static void syscall(void * message);
++    static void syscalled();
++
++    using CPU_Common::htole64;
++    using CPU_Common::htole32;
++    using CPU_Common::htole16;
++    using CPU_Common::letoh64;
++    using CPU_Common::letoh32;
++    using CPU_Common::letoh16;
++
++    using CPU_Common::htobe64;
++    using CPU_Common::htobe32;
++    using CPU_Common::htobe16;
++    using CPU_Common::betoh64;
++    using CPU_Common::betoh32;
++    using CPU_Common::betoh16;
++
++    using CPU_Common::htonl;
++    using CPU_Common::htons;
++    using CPU_Common::ntohl;
++    using CPU_Common::ntohs;
++
++private:
++    template<typename Head, typename ... Tail>
++    static void init_stack_helper(Log_Addr sp, Head head, Tail ... tail) {
++        *static_cast<Head *>(sp) = head;
++        init_stack_helper(sp + sizeof(Head), tail ...);
++    }
++    static void init_stack_helper(Log_Addr sp) {}
++
++    static void context_load_helper();
++
++    static void init();
++
++private:
++    static unsigned int _cpu_clock;
++    static unsigned int _bus_clock;
++};
++
++inline CPU::Reg64 htole64(CPU::Reg64 v) { return CPU::htole64(v); }
++inline CPU::Reg32 htole32(CPU::Reg32 v) { return CPU::htole32(v); }
++inline CPU::Reg16 htole16(CPU::Reg16 v) { return CPU::htole16(v); }
++inline CPU::Reg64 letoh64(CPU::Reg64 v) { return CPU::letoh64(v); }
++inline CPU::Reg32 letoh32(CPU::Reg32 v) { return CPU::letoh32(v); }
++inline CPU::Reg16 letoh16(CPU::Reg16 v) { return CPU::letoh16(v); }
++
++inline CPU::Reg64 htobe64(CPU::Reg64 v) { return CPU::htobe64(v); }
++inline CPU::Reg32 htobe32(CPU::Reg32 v) { return CPU::htobe32(v); }
++inline CPU::Reg16 htobe16(CPU::Reg16 v) { return CPU::htobe16(v); }
++inline CPU::Reg64 betoh64(CPU::Reg64 v) { return CPU::betoh64(v); }
++inline CPU::Reg32 betoh32(CPU::Reg32 v) { return CPU::betoh32(v); }
++inline CPU::Reg16 betoh16(CPU::Reg16 v) { return CPU::betoh16(v); }
++
++inline CPU::Reg32 htonl(CPU::Reg32 v)   { return CPU::htonl(v); }
++inline CPU::Reg16 htons(CPU::Reg16 v)   { return CPU::htons(v); }
++inline CPU::Reg32 ntohl(CPU::Reg32 v)   { return CPU::ntohl(v); }
++inline CPU::Reg16 ntohs(CPU::Reg16 v)   { return CPU::ntohs(v); }
++
++#endif
++
++__END_SYS
++
++#endif
+diff --git a/include/architecture/armv8/armv8_mmu.h b/include/architecture/armv8/armv8_mmu.h
+new file mode 100644
+index 0000000..1ac9bf2
+--- /dev/null
++++ b/include/architecture/armv8/armv8_mmu.h
+@@ -0,0 +1,484 @@
++// EPOS ARMv8 MMU Mediator Declarations
++
++#ifndef __armv8_mmu_h
++#define __armv8_mmu_h
++
++#include <architecture/mmu.h>
++#include <system/memory_map.h>
++
++__BEGIN_SYS
++
++class ARMv8_MMU: public MMU_Common<12, 8, 12>
++{
++    friend class CPU;
++    friend class Setup;
++
++private:
++    typedef Grouping_List<Frame> List;
++
++    static const bool colorful = Traits<MMU>::colorful;
++    static const unsigned int COLORS = Traits<MMU>::COLORS;
++    static const unsigned int RAM_BASE = Memory_Map::RAM_BASE;
++    static const unsigned int APP_LOW = Memory_Map::APP_LOW;
++    static const unsigned int PHY_MEM = Memory_Map::PHY_MEM;
++    static const unsigned int SYS = Memory_Map::SYS;
++
++public:
++    // Page Flags
++    class Page_Flags
++    {
++    public:
++        // Page Table entry flags
++        enum {
++            XN   = 1 << 0,  // not executable
++            PTE  = 1 << 1,  // sets entry as Small Page == Page Table Entry
++            // Access Permission bits, assuming SCTLR.AFE = 0
++            AP0  = 1 << 4,  
++            AP1  = 1 << 5,
++            AP2  = 1 << 9,
++            RW   = AP0,     // Read Write SYS
++            RO   = AP2,     // Read only SYS
++            USR  = (AP1 | AP0),
++            // TEX[2:0], C, B, S --> set Shareability/Cacheability
++            B    = 1 << 2,  // Bufferable
++            C    = 1 << 3,  // Cacheable
++            TEX0 = 1 << 6,
++            TEX1 = 1 << 7,
++            TEX2 = 1 << 8,
++            S    = 1 << 10, // Shareable
++            nG   = 1 << 11, // Not Global
++
++            SDEV = B,       // Shareable Device Memory, should not be used along with CT or CWT
++            CD   = TEX2,    // Cache Disable
++            CWT  = (TEX2 | TEX1 | TEX0 | C | B),  // Cacheable Write Through
++
++            // Page Table flags
++            APP  = (nG | S | AP1 | AP0 | CWT | PTE),        // S, RWX  All, Normal WT
++            APPD = (nG | S | AP1 | AP0 | CWT | XN  | PTE),  // S, RWnX All, Normal WT
++            APPC = (nG | S | AP2 | AP1 | AP0 | CWT | PTE),  // S, RnWX All, Normal WT
++            SYS  = (nG | S | AP0 | CWT | PTE),              // S, RWX  SYS, Normal WT
++            IO   = (nG | AP0 | SDEV | PTE),                 // Device Memory = Shareable, RWX, SYS
++            DMA  = (nG | AP0 | SDEV | PTE),                 // Device Memory no cacheable / Old Peripheral = Shareable, RWX, B ?
++            PT_MASK = (1 << 12) - 1
++        };
++
++        // Short-descriptor format | Page Directory entry flags
++        enum {
++            PDE  = 1 << 0,         // Set descriptor as Page Directory entry
++            NS   = 1 << 3,         // NonSecure Memory Region
++            PD_FLAGS = (NS | PDE),
++            PD_MASK = (1 << 10) -1
++        };
++
++    public:
++        Page_Flags() {}
++        Page_Flags(unsigned int f) : _flags(f) {}
++        Page_Flags(Flags f) : _flags(nG |
++                                    ((f & Flags::RW)  ? RW   : RO) |
++                                    ((f & Flags::USR) ? USR  : 0) |
++                                    ((f & Flags::CWT) ? CWT  : 0) |
++                                    ((f & Flags::CD)  ? CD   : 0) |
++                                    ((f & Flags::EX)  ? 0    : XN) |
++                                    ((f & Flags::IO)  ? SDEV : S) ) {}
++
++        operator unsigned int() const { return _flags; }
++
++        friend Debug & operator<<(Debug & db, const Page_Flags & f) { db << hex << f._flags; return db; }
++
++    private:
++        unsigned int _flags;
++    };
++
++    // Page_Table
++    template<unsigned int ENTRIES>
++    class _Page_Table
++    {
++    public:
++        _Page_Table() {}
++
++        PT_Entry & operator[](unsigned int i) { return _entry[i]; }
++        _Page_Table & log() { return *static_cast<_Page_Table *>(phy2log(this)); }
++
++        void map(int from, int to, Page_Flags flags, Color color) {
++            Phy_Addr * addr = alloc(to - from, color);
++            if(addr)
++                remap(addr, from, to, flags);
++            else
++                for( ; from < to; from++) {
++                    Log_Addr * pte = phy2log(&_entry[from]);
++                    *pte = phy2pte(alloc(1, color), flags);
++                }
++        }
++
++        void map_contiguous(int from, int to, Page_Flags flags, Color color) {
++            remap(alloc(to - from, color), from, to, flags);
++        }
++
++        void remap(Phy_Addr addr, int from, int to, Page_Flags flags) {
++            addr = align_page(addr);
++            for( ; from < to; from++) {
++                Log_Addr * pte = phy2log(&_entry[from]);
++                *pte = phy2pte(addr, flags);
++                addr += sizeof(Page);
++            }
++        }
++
++        void unmap(int from, int to) {
++            for( ; from < to; from++) {
++                free(_entry[from]);
++                Log_Addr * pte = phy2log(&_entry[from]);
++                *pte = 0;
++            }
++        }
++
++        friend OStream & operator<<(OStream & os, _Page_Table & pt) {
++            os << "{\n";
++            int brk = 0;
++            for(unsigned int i = 0; i < ENTRIES; i++)
++                if(pt[i]) {
++                    os << "[" << i << "]=" << pt[i] << "  ";
++                    if(!(++brk % 4))
++                        os << "\n";
++                }
++            os << "\n}";
++            return os;
++        }
++
++    private:
++        PT_Entry _entry[ENTRIES]; // the Phy_Addr in each entry passed through phy2pte()
++    };
++
++    typedef _Page_Table<PT_ENTRIES> Page_Table;
++
++    // Page Directory
++    typedef _Page_Table<PD_ENTRIES> Page_Directory;
++
++    // Chunk (for Segment)
++    class Chunk
++    {
++    public:
++        Chunk() {}
++
++        Chunk(unsigned int bytes, Flags flags, Color color = WHITE)
++        : _from(0), _to(pages(bytes)), _pts(page_tables(_to - _from)), _flags(Page_Flags(flags)), _pt(calloc(_pts, WHITE)) {
++            if(!((_flags & Page_Flags::CWT) || (_flags & Page_Flags::CD))) // CT == Strongly Ordered == C/B/TEX bits are 0
++                _pt->map_contiguous(_from, _to, _flags, color);
++            else
++                _pt->map(_from, _to, _flags, color);
++        }
++
++        Chunk(Phy_Addr phy_addr, unsigned int bytes, Flags flags)
++        : _from(0), _to(pages(bytes)), _pts(page_tables(_to - _from)), _flags(Page_Flags(flags)), _pt(calloc(_pts, WHITE)) {
++            _pt->remap(phy_addr, _from, _to, flags);
++        }
++
++        Chunk(Phy_Addr pt, unsigned int from, unsigned int to, Flags flags)
++        : _from(from), _to(to), _pts(page_tables(_to - _from)), _flags(flags), _pt(pt) {}
++
++        ~Chunk() {
++            if(!(_flags & Page_Flags::IO)) {
++                if(!((_flags & Page_Flags::CWT) || (_flags & Page_Flags::CD))) // CT == Strongly Ordered == C/B/TEX bits are 0
++                    free((*_pt)[_from], _to - _from);
++                else
++                    for( ; _from < _to; _from++)
++                        free((*_pt)[_from]);
++            }
++            free(_pt, _pts);
++        }
++
++        unsigned int pts() const { return _pts; }
++        Page_Flags flags() const { return _flags; }
++        Page_Table * pt() const { return _pt; }
++        unsigned int size() const { return (_to - _from) * sizeof(Page); }
++
++        Phy_Addr phy_address() const {
++            return (!((_flags & Page_Flags::CWT) || (_flags & Page_Flags::CD))) ? Phy_Addr(indexes((*_pt)[_from])) : Phy_Addr(false);
++            // CT == Strongly Ordered == C/B/TEX bits are 0
++        }
++
++        int resize(unsigned int amount) {
++            if(!((_flags & Page_Flags::CWT) || (_flags & Page_Flags::CD))) // CT == Strongly Ordered == C/B/TEX bits are 0
++                return 0;
++
++            unsigned int pgs = pages(amount);
++
++            Color color = colorful ? phy2color(_pt) : WHITE;
++
++            unsigned int free_pgs = _pts * PT_ENTRIES - _to;
++            if(free_pgs < pgs) { // resize _pt
++                unsigned int pts = _pts + page_tables(pgs - free_pgs);
++                Page_Table * pt = calloc(pts, color);
++                memcpy(phy2log(pt), phy2log(_pt), _pts * sizeof(Page));
++                free(_pt, _pts);
++                _pt = pt;
++                _pts = pts;
++            }
++
++            _pt->map(_to, _to + pgs, _flags, color);
++            _to += pgs;
++
++            return pgs * sizeof(Page);
++        }
++
++    private:
++        unsigned int _from;
++        unsigned int _to;
++        unsigned int _pts;
++        Page_Flags _flags;
++        Page_Table * _pt; // this is a physical address
++    };
++
++    // Directory (for Address_Space)
++    class Directory
++    {
++    public:
++        Directory() : _free(true) {
++            // Page Directories have 4096 32-bit entries and must be aligned to 16Kb, thus, we need 7 frame in the worst case
++            Phy_Addr pd = calloc(sizeof(Page_Directory) / sizeof(Frame) + ((sizeof(Page_Directory) / sizeof(Frame)) - 1), WHITE);
++            unsigned int free_frames = 0;
++            while(pd & (sizeof(Page_Directory) - 1)) { // pd is not aligned to 16 Kb
++                Phy_Addr * tmp = pd;
++                pd += sizeof(Frame); // skip this frame
++                free(tmp); // return this frame to the free list
++                free_frames++;
++            }
++            if(free_frames != 3)
++                free(pd + 4 * sizeof(Page), 3 - free_frames); // return exceeding frames at the tail to the free list
++
++            _pd = static_cast<Page_Directory *>(pd);
++
++            for(unsigned int i = directory(PHY_MEM); i < directory(APP_LOW); i++)
++                (*_pd)[i] = (*_master)[i];
++            
++            for(unsigned int i = directory(SYS); i < PD_ENTRIES; i++)
++                (*_pd)[i] = (*_master)[i];
++        }
++
++        Directory(Page_Directory * pd) : _pd(pd), _free(false) {}
++
++        ~Directory() { if(_free) free(_pd, sizeof(Page_Directory) / sizeof(Page)); }
++
++        Phy_Addr pd() const { return _pd; }
++
++        void activate() const { ARMv8_MMU::pd(_pd); }
++
++        Log_Addr attach(const Chunk & chunk, unsigned int from = directory(APP_LOW)) {
++            for(unsigned int i = from; i < directory(SYS); i++)
++                if(attach(i, chunk.pt(), chunk.pts(), chunk.flags()))
++                    return i << DIRECTORY_SHIFT;
++            return Log_Addr(false);
++        }
++
++        Log_Addr attach(const Chunk & chunk, Log_Addr addr) {
++            unsigned int from = directory(addr);
++            if(attach(from, chunk.pt(), chunk.pts(), chunk.flags()))
++                return from << DIRECTORY_SHIFT;
++            return Log_Addr(false);
++        }
++
++        void detach(const Chunk & chunk) {
++            for(unsigned int i = 0; i < PD_ENTRIES; i++) {
++                if(indexes(pte2phy((*_pd)[i])) == indexes(chunk.pt())) {
++                    detach(i, chunk.pt(), chunk.pts());
++                    return;
++                }
++            }
++            db<MMU>(WRN) << "MMU::Directory::detach(pt=" << chunk.pt() << ") failed!" << endl;
++        }
++
++        void detach(const Chunk & chunk, Log_Addr addr) {
++            unsigned int from = directory(addr);
++            if(indexes(pte2phy((*_pd)[from])) != indexes(chunk.pt())) {
++                db<MMU>(WRN) << "MMU::Directory::detach(pt=" << chunk.pt() << ",addr=" << addr << ") failed!" << endl;
++                return;
++            }
++            detach(from, chunk.pt(), chunk.pts());
++        }
++
++        Phy_Addr physical(Log_Addr addr) {
++            PD_Entry pde = (*_pd)[directory(addr)];
++            Page_Table * pt = static_cast<Page_Table *>(pde2phy(pde));
++            PT_Entry pte = pt->log()[page(addr)];
++            return pte | offset(addr);
++        }
++
++    private:
++        bool attach(unsigned int from, const Page_Table * pt, unsigned int n, Page_Flags flags) {
++            for(unsigned int i = from; i < from + n; i++)
++                if(_pd->log()[i])
++                    return false;
++            for(unsigned int i = from; i < from + n; i++, pt++)
++                _pd->log()[i] = phy2pde(Phy_Addr(pt));
++            return true;
++        }
++
++        void detach(unsigned int from, const Page_Table * pt, unsigned int n) {
++            for(unsigned int i = from; i < from + n; i++) {
++                _pd->log()[i] = 0;
++                flush_tlb(i << DIRECTORY_SHIFT);
++            }
++            CPU::isb();
++            CPU::dsb();
++        }
++
++    private:
++        Page_Directory * _pd;  // this is a physical address, but operator*() returns a logical address
++        bool _free;
++    };
++
++   // DMA_Buffer
++    class DMA_Buffer: public Chunk
++    {
++    public:
++        DMA_Buffer(unsigned int s) : Chunk(s, Page_Flags::DMA) {
++            Directory dir(current());
++            _log_addr = dir.attach(*this);
++            db<MMU>(TRC) << "MMU::DMA_Buffer() => " << *this << endl;
++        }
++
++        DMA_Buffer(unsigned int s, Log_Addr d): Chunk(s, Page_Flags::DMA) {
++            Directory dir(current());
++            _log_addr = dir.attach(*this);
++            memcpy(_log_addr, d, s);
++            db<MMU>(TRC) << "MMU::DMA_Buffer(phy=" << *this << " <= " << d << endl;
++        }
++
++        Log_Addr log_address() const { return _log_addr; }
++
++        friend OStream & operator<<(OStream & os, const DMA_Buffer & b) {
++            os << "{phy=" << b.phy_address() << ",log=" << b.log_address() << ",size=" << b.size() << ",flags=" << b.flags() << "}";
++            return os;
++        }
++
++    private:
++        Log_Addr _log_addr;
++    };
++
++    // Class Translation performs manual logical to physical address translations for debugging purposes only
++    class Translation
++    {
++    public:
++        Translation(Log_Addr addr, bool pt = false, Page_Directory * pd = 0): _addr(addr), _show_pt(pt), _pd(pd) {}
++
++        friend OStream & operator<<(OStream & os, const Translation & t) {
++            Page_Directory * pd = t._pd ? t._pd : current();
++            PD_Entry pde = pd->log()[directory(t._addr)];
++            Page_Table * pt = static_cast<Page_Table *>(pde2phy(pde));
++            PT_Entry pte = pt->log()[page(t._addr)];
++
++            os << "{addr=" << static_cast<void *>(t._addr) << ",pd=" << pd << ",pd[" << directory(t._addr) << "]=" << pde << ",pt=" << pt;
++            if(t._show_pt)
++                os << "=>" << pt->log();
++            os << ",pt[" << page(t._addr) << "]=" << pte << ",f=" << pte2phy(pte) << ",*addr=" << hex << *static_cast<unsigned int *>(t._addr) << "}";
++            return os;
++        }
++
++    private:
++        Log_Addr _addr;
++        bool _show_pt;
++        Page_Directory * _pd;
++    };
++
++public:
++    ARMv8_MMU() {}
++
++    static Phy_Addr alloc(unsigned int frames = 1, Color color = WHITE) {
++        Phy_Addr phy(false);
++
++        if(frames) {
++            List::Element * e = _free[color].search_decrementing(frames);
++            if(e) {
++                phy = e->object() + e->size();
++                db<MMU>(TRC) << "MMU::alloc(frames=" << frames << ",color=" << color << ") => " << phy << endl;
++            } else
++                if(colorful)
++                    db<MMU>(INF) << "MMU::alloc(frames=" << frames << ",color=" << color << ") => failed!" << endl;
++                else
++                    db<MMU>(WRN) << "MMU::alloc(frames=" << frames << ",color=" << color << ") => failed!" << endl;
++        }
++
++        return phy;
++    }
++
++    static Phy_Addr calloc(unsigned int frames = 1, Color color = WHITE) {
++        Phy_Addr phy = alloc(frames, color);
++        memset(phy2log(phy), 0, sizeof(Frame) * frames);
++        return phy;
++    }
++
++    static void free(Phy_Addr frame, int n = 1) {
++        // Clean up MMU flags in frame address
++        frame = indexes(frame);
++        Color color = colorful ? phy2color(frame) : WHITE;
++
++        db<MMU>(TRC) << "MMU::free(frame=" << frame << ",color=" << color << ",n=" << n << ")" << endl;
++
++        if(frame && n) {
++            List::Element * e = new (phy2log(frame)) List::Element(frame, n);
++            List::Element * m1, * m2;
++            _free[color].insert_merging(e, &m1, &m2);
++        }
++    }
++
++    static void white_free(Phy_Addr frame, int n) {
++        // Clean up MMU flags in frame address
++        frame = indexes(frame);
++
++        db<MMU>(TRC) << "MMU::free(frame=" << frame << ",color=" << WHITE << ",n=" << n << ")" << endl;
++
++        if(frame && n) {
++            List::Element * e = new (phy2log(frame)) List::Element(frame, n);
++            List::Element * m1, * m2;
++            _free[WHITE].insert_merging(e, &m1, &m2);
++        }
++    }
++
++    static unsigned int allocable(Color color = WHITE) { return _free[color].head() ? _free[color].head()->size() : 0; }
++
++    static Page_Directory * volatile current() { return static_cast<Page_Directory * volatile>(pd());}
++
++    static Phy_Addr physical(Log_Addr addr) {
++        Page_Directory * pd = current();
++        Page_Table * pt = pd->log()[directory(addr)];
++        return pt->log()[page(addr)] | offset(addr);
++    }
++
++    static PT_Entry phy2pte(Phy_Addr frame, Page_Flags flags) { return (frame) | flags | Page_Flags::PTE; }
++    static Phy_Addr pte2phy(PT_Entry entry) { return (entry & ~Page_Flags::PT_MASK); }
++    static PD_Entry phy2pde(Phy_Addr frame) { return (frame) | Page_Flags::PD_FLAGS; }
++    static Phy_Addr pde2phy(PD_Entry entry) { return (entry & ~Page_Flags::PD_MASK); }
++
++    static Log_Addr phy2log(Phy_Addr phy) { return Log_Addr((RAM_BASE == PHY_MEM) ? phy : (RAM_BASE > PHY_MEM) ? phy - (RAM_BASE - PHY_MEM) : phy + (PHY_MEM - RAM_BASE)); }
++    static Phy_Addr log2phy(Log_Addr log) { return Phy_Addr((RAM_BASE == PHY_MEM) ? log : (RAM_BASE > PHY_MEM) ? log + (RAM_BASE - PHY_MEM) : log - (PHY_MEM - RAM_BASE)); }
++
++    static Color phy2color(Phy_Addr phy) { return static_cast<Color>(colorful ? ((phy >> PAGE_SHIFT) & 0x7f) % COLORS : WHITE); } // TODO: what is 0x7f
++
++    static Color log2color(Log_Addr log) {
++        if(colorful) {
++            Page_Directory * pd = current();
++            Page_Table * pt = (*pd)[directory(log)];
++            Phy_Addr phy = (*pt)[page(log)] | offset(log);
++            return static_cast<Color>(((phy >> PAGE_SHIFT) & 0x7f) % COLORS);
++        } else
++            return WHITE;
++    }
++
++private:
++    static Phy_Addr pd() { return CPU::pd(); }
++    static void pd(Phy_Addr pd) { CPU::pd(pd); CPU::flush_tlb(); CPU::isb(); CPU::dsb(); }
++
++    static void flush_tlb() { CPU::flush_tlb(); }
++    static void flush_tlb(Log_Addr addr) { CPU::flush_tlb(directory_bits(addr)); } // only bits from 31 to 12, all ASIDs
++
++    static void init();
++
++private:
++    static List _free[colorful * COLORS + 1]; // +1 for WHITE
++    static Page_Directory * _master;
++};
++
++class MMU: public IF<Traits<System>::multitask, ARMv8_MMU, No_MMU>::Result {};
++
++__END_SYS
++
++#endif
+diff --git a/include/architecture/armv8/armv8_pmu.h b/include/architecture/armv8/armv8_pmu.h
+new file mode 100644
+index 0000000..8982faf
+--- /dev/null
++++ b/include/architecture/armv8/armv8_pmu.h
+@@ -0,0 +1,242 @@
++// EPOS ARMv8 PMU Mediator Declarations
++
++#ifndef __armv8_pmu_h
++#define __armv8_pmu_h
++
++#include <architecture/cpu.h>
++#define __common_only__
++#include <architecture/pmu.h>
++#undef __common_only__
++
++__BEGIN_SYS
++
++class ARMv8_A_PMU: public PMU_Common
++{
++private:
++    typedef CPU::Reg32 Reg32;
++
++protected:
++    static const unsigned int CHANNELS = 6;
++    static const unsigned int FIXED = 0;
++    static const unsigned int EVENTS = 93; // 54 if A53
++
++public:
++    // Useful bits in the PMCR register
++    enum {                      // Description                          Type    Value after reset
++        PMCR_E = 1 << 0,        // Enable all counters                  r/w
++        PMCR_P = 1 << 1,        // Reset event counters                 r/w
++        PMCR_C = 1 << 2,        // Cycle counter reset                  r/w
++        PMCR_D = 1 << 3,        // Enable cycle counter prescale (1/64) r/w
++        PMCR_X = 1 << 4,        // Export events                        r/w
++    };
++
++    // Useful bits in the PMCNTENSET register
++    enum {                      // Description                          Type    Value after reset
++        PMCNTENSET_C = 1 << 31, // Cycle counter enable                 r/w
++    };
++
++    // Useful bits in the PMOVSR register
++    enum {                      // Description                          Type    Value after reset
++        PMOVSR_C = 1 << 31,     // Cycle counter overflow clear         r/w
++    };
++
++    // Predefined architectural performance events
++    enum {
++        // Event
++        L1I_REFILL                            = 0x01,
++        L1I_TLB_REFILL                        = 0x02,
++        L1D_REFILL                            = 0x03,
++        L1D_ACCESS                            = 0x04,
++        L1D_TLB_REFILL                        = 0x05,
++        INSTRUCTIONS_ARCHITECTURALLY_EXECUTED = 0x08,
++        EXCEPTION_TAKEN                       = 0x09,
++        BRANCHES_ARCHITECTURALLY_EXECUTED     = 0x0c,
++        IMMEDIATE_BRANCH                      = 0X0d,
++        UNALIGNED_LOAD_STORE                  = 0X0f,
++        MISPREDICTED_BRANCH                   = 0x10,
++        CYCLE                                 = 0x11,
++        PREDICTABLE_BRANCH_EXECUTED           = 0x12,
++        DATA_MEMORY_ACCESS                    = 0x13,
++        L1I_ACCESS                            = 0x14,
++        L1D_WRITEBACK                         = 0x15,
++        L2D_ACCESS                            = 0x16,
++        L2D_REFILL                            = 0x17,
++        L2D_WRITEBACK                         = 0x18,
++        BUS_ACCESS                            = 0x19,
++        LOCAL_MEMORY_ERROR                    = 0x1a,
++        INSTRUCTION_SPECULATIVELY_EXECUTED    = 0x1b,
++        BUS_CYCLE                             = 0x1d,
++        CHAIN                                 = 0x1e,
++        // Cortex-A9 specific events
++        JAVA_BYTECODE_EXECUTE                 = 0x40,
++        SOFTWARE_JAVA_BYTECODE_EXECUTED       = 0x41,
++        JAZELLE_BACKWARDS_BRANCHES_EXECUTED   = 0x42,
++        COHERENT_LINEFILL_MISS                = 0x50,
++        COHERENT_LINEFILL_HIT                 = 0x51,
++        ICACHE_DEPENDENT_STALL_CYCLES         = 0x60,
++        DCACHE_DEPENDENT_STALL_CYCLES         = 0x61,
++        MAIN_TLB_MISS_STALL_CYCLES            = 0x62,
++        STREX_PASSED                          = 0x63,
++        STREX_FAILED                          = 0x64,
++        DATA_EVICTION                         = 0x65,
++        ISSUE_DOESNT_DISPATCH                 = 0x66,
++        ISSUE_EMPTY                           = 0x67,
++        ISSUE_CORE_RENAMING                   = 0x68,
++        PREDICTABLE_FUNCTION_RETURNS          = 0x6e,
++        MAIN_EXECUTION_UNIT_RETURNS           = 0x70,
++        SECOND_EXECUTION_UNIT_RETURNS         = 0x71,
++        LOAD_STORE_INSTRUCTIONS               = 0x72,
++        FLOATING_POINT_INSTRUCTIONS           = 0x73,
++        NEON_INSTRUCTIONS                     = 0x74,
++        PROCESSOR_STALL_PLD                   = 0x80,
++        PROCESSOR_STALL_WRITE_MEMORY          = 0x81,
++        PROCESSOR_STALL_ITLB_MISS             = 0x82,
++        PROCESSOR_STALL_DTLB_MISS             = 0x83,
++        PROCESSOR_STALL_IUTLB_MISS            = 0x84,
++        PROCESSOR_STALL_DUTLB_MISS            = 0x85,
++        PROCESSOR_STALL_DMB                   = 0x86,
++        INTEGER_CLOCK_ENABLED                 = 0x8a,
++        DATA_ENGINE_CLOCK_ENABLED             = 0x8b,
++        ISB_INSTRUCTIONS                      = 0x90,
++        DSB_INSTRUCTIONS                      = 0x91,
++        DMB_INSTRUCTIONS                      = 0x92,
++        EXTERNAL_INTERRUPTS                   = 0x93,
++        PLE_CACHE_LINE_REQUEST_COMPLETED      = 0xa0,
++        PLE_CACHE_LINE_REQUEST_SKIPPED        = 0xa1,
++        PLE_FIFO_FLUSH                        = 0xa2,
++        PLE_REQUEST_COMPLETED                 = 0xa3,
++        PLE_FIFO_OVERFLOW                     = 0xa4,
++        PLE_REQUEST_PROGRAMMED                = 0xa5,
++        // Cortex A-53 specific events
++        BUS_ACCESS_LD                         = 0x60,
++        BUS_ACCESS_ST                         = 0x61,
++        BR_INDIRECT_SPEC                      = 0x7a,
++        EXC_IRQ                               = 0x86,
++        EXC_FIQ                               = 0x87,
++        EXTERNAL_MEM_REQUEST                  = 0xc0,
++        EXTERNAL_MEM_REQUEST_NON_CACHEABLE    = 0xc1,
++        PREFETCH_LINEFILL                     = 0xc2,
++        ICACHE_THROTTLE                       = 0xc3,
++        ENTER_READ_ALLOC_MODE                 = 0xc4,
++        READ_ALLOC_MODE                       = 0xc5,
++        PRE_DECODE_ERROR                      = 0xc6,
++        DATA_WRITE_STALL_ST_BUFFER_FULL       = 0xc7,
++        SCU_SNOOPED_DATA_FROM_OTHER_CPU       = 0xc8,
++        CONDITIONAL_BRANCH_EXECUTED           = 0xc9,
++        IND_BR_MISP                           = 0xca,
++        IND_BR_MISP_ADDRESS_MISCOMPARE        = 0xcb,
++        CONDITIONAL_BRANCH_MISP               = 0xcc,
++        L1_ICACHE_MEM_ERROR                   = 0xd0,
++        L1_DCACHE_MEM_ERROR                   = 0xd1,
++        TLB_MEM_ERROR                         = 0xd2,
++        EMPTY_DPU_IQ_NOT_GUILTY               = 0xe0,
++        EMPTY_DPU_IQ_ICACHE_MISS              = 0xe1,
++        EMPTY_DPU_IQ_IMICRO_TLB_MISS          = 0xe2,
++        EMPTY_DPU_IQ_PRE_DECODE_ERROR         = 0xe3,
++        INTERLOCK_CYCLE_NOT_GUILTY            = 0xe4,
++        INTERLOCK_CYCLE_LD_ST_WAIT_AGU_ADDRESS= 0xe5,
++        INTERLOCK_CYCLE_ADV_SIMD_FP_INST      = 0xe6,
++        INTERLOCK_CYCLE_WR_STAGE_STALL_BC_MISS= 0xe7,
++        INTERLOCK_CYCLE_WR_STAGE_STALL_BC_STR = 0xe8,
++    };
++
++public:
++    ARMv8_A_PMU() {}
++
++    static void config(Channel channel, const Event event, Flags flags = NONE) {
++        assert((static_cast<unsigned int>(channel) < CHANNELS) && (static_cast<unsigned int>(event) < EVENTS));
++        db<PMU>(TRC) << "PMU::config(c=" << channel << ",e=" << event << ",f=" << flags << ")" << endl;
++        pmselr(channel);
++        pmxevtyper(_events[event]);
++        start(channel);
++    }
++
++    static Count read(Channel channel) {
++        db<PMU>(TRC) << "PMU::read(c=" << channel << ")" << endl;
++        pmselr(channel);
++        return pmxevcntr();
++    }
++
++    static void write(Channel channel, Count count) {
++        db<PMU>(TRC) << "PMU::write(ch=" << channel << ",ct=" << count << ")" << endl;
++        pmselr(channel);
++        pmxevcntr(count);
++    }
++
++    static void start(Channel channel) {
++        db<PMU>(TRC) << "PMU::start(c=" << channel << ")" << endl;
++        pmcntenset(pmcntenset() | (1 << channel));
++    }
++
++    static void stop(Channel channel) {
++        db<PMU>(TRC) << "PMU::stop(c=" << channel << ")" << endl;
++        pmcntenclr(pmcntenclr() | (1 << channel));
++    }
++
++    static void reset(Channel channel) {
++        db<PMU>(TRC) << "PMU::reset(c=" << channel << ")" << endl;
++        write(channel, 0);
++    }
++
++    static void init();
++
++private:
++    static void pmcr(Reg32 reg) { ASM("nop"); }
++    static Reg32 pmcr() { Reg32 reg /* TODO */= 0; ASM("nop"); return reg; }
++
++    static void pmcntenset(Reg32 reg) { ASM("nop"); }
++    static Reg32 pmcntenset() { Reg32 reg/* TODO */= 0; ASM("nop"); return reg; }
++
++    static void pmcntenclr(Reg32 reg) { ASM("nop"); }
++    static Reg32 pmcntenclr() { Reg32 reg/* TODO */= 0; ASM("nop"); return reg; }
++
++    static void pmovsr(Reg32 reg) { ASM("nop"); }
++    static Reg32 pmovsr() { Reg32 reg/* TODO */= 0; ASM("nop"); return reg; }
++
++    static void pmselr(Reg32 reg) { ASM("nop"); }
++    static Reg32 pmselr() { Reg32 reg/* TODO */= 0; ASM("nop"); return reg; }
++
++    static void pmxevtyper(const Reg32 reg) { ASM("nop"); }
++    static Reg32 pmxevtyper() { Reg32 reg/* TODO */= 0; ASM("nop"); return reg; }
++
++    static void pmxevcntr(Reg32 reg) { ASM("nop"); }
++    static Reg32 pmxevcntr() { Reg32 reg/* TODO */= 0; ASM("nop"); return reg; }
++
++private:
++    static const Event _events[EVENTS];
++};
++
++
++class PMU: private ARMv8_A_PMU
++{
++    friend class CPU;
++
++private:
++    typedef ARMv8_A_PMU Engine;
++
++public:
++    using Engine::CHANNELS;
++    using Engine::FIXED;
++    using Engine::EVENTS;
++
++    using Engine::Event;
++    using Engine::Count;
++    using Engine::Channel;
++
++public:
++    PMU() {}
++
++    using Engine::config;
++    using Engine::read;
++    using Engine::write;
++    using Engine::start;
++    using Engine::stop;
++    using Engine::reset;
++
++private:
++    static void init() { Engine::init(); }
++};
++
++__END_SYS
++
++#endif
+diff --git a/include/architecture/armv8/armv8_traits.h b/include/architecture/armv8/armv8_traits.h
+new file mode 100644
+index 0000000..63fe55c
+--- /dev/null
++++ b/include/architecture/armv8/armv8_traits.h
+@@ -0,0 +1,51 @@
++// EPOS ARMv8 Architecture Metainfo
++#ifndef __armv8_traits_h
++#define __armv8_traits_h
++
++#include <system/config.h>
++
++__BEGIN_SYS
++
++template<> struct Traits<CPU>: public Traits<Build>
++{
++    enum {LITTLE, BIG};
++    static const unsigned int ENDIANESS         = LITTLE;
++    static const unsigned int WORD_SIZE         = 32;
++    static const unsigned int CLOCK             = Traits<Build>::MODEL == Traits<Build>::LM3S811 ? 50000000 : Traits<Build>::MODEL == Traits<Build>::Zynq ? 666666687 : 32000000;
++    static const bool unaligned_memory_access   = false;
++};
++
++template<> struct Traits<MMU>: public Traits<Build>
++{
++    static const bool colorful = false;
++    static const unsigned int COLORS = 1;
++};
++
++template<> struct Traits<FPU>: public Traits<Build>
++{
++    static const bool enabled = (Traits<Build>::MODEL == Traits<Build>::Raspberry_Pi3);;
++    static const bool user_save = true;
++};
++
++template<> struct Traits<TSC>: public Traits<Build>
++{
++    // In order to use Machine::delay, TSC must be enabled
++    // On eMote3, TSC uses User_Timer on channel 3. To use channel 3, you must disable the TSC
++    // On LM3S811:
++    // * TSC uses User_Timer on channel 1. To use channel 1, you must disable the TSC
++    // * LM3S811 does not support up-count mode on general purpose timers,
++    //   and QEMU (v2.7.50) does not support reading the value of general purpose timers,
++    //   thus TSC::time_stamp() does not work, but Machine::delay does.
++    static const bool enabled = (Traits<Build>::MODEL != Traits<Build>::LM3S811);
++
++    // TODO: http://stackoverflow.com/questions/16236460/arm-cortex-a9-event-counters-return-0
++};
++
++template<> struct Traits<PMU>: public Traits<Build>
++{
++    static const bool enabled = (Traits<Build>::MODEL == Traits<Build>::Raspberry_Pi3);
++};
++
++__END_SYS
++
++#endif
+diff --git a/include/architecture/armv8/armv8_tsc.h b/include/architecture/armv8/armv8_tsc.h
+new file mode 100644
+index 0000000..0d099b1
+--- /dev/null
++++ b/include/architecture/armv8/armv8_tsc.h
+@@ -0,0 +1,111 @@
++// EPOS ARMv8 Time-Stamp Counter Mediator Declarations
++
++#ifndef __armv8_tsc_h
++#define __armv8_tsc_h
++
++#include <architecture/cpu.h>
++#include <architecture/tsc.h>
++#include <system/memory_map.h>
++
++#define __ic_common_only__
++#include <machine/ic.h>
++#undef __ic_common_only__
++
++__BEGIN_SYS
++
++class TSC: private TSC_Common
++{
++    friend class CPU;
++    friend class IC;
++
++private:
++    static const Hertz CLOCK = Traits<Build>::MODEL == Traits<Build>::Raspberry_Pi3 ? 1000000 
++                             : Traits<Build>::MODEL == Traits<Build>::Zynq ? Traits<CPU>::CLOCK / 2
++                             : Traits<CPU>::CLOCK;
++    static const PPB ACCURACY = 40000; // ppb
++
++    // Cortex-M3 GPTM registers offsets
++    enum {              // Description
++        GPTMTAR = 0x48, // Counter
++    };
++
++    // Zynq Global Timer Registers offsets
++    enum {             // Description
++        GTCTRL = 0x00, // Low Counter
++        GTCTRH = 0x04, // High Counter
++        GTCLR  = 0x08, // Control
++        GTISR  = 0x0C  // Interrupt Status
++    };
++
++    // BCM2835 cortex-a53 System Timer
++    enum {                                      // Description
++        STCS                        = 0x00,     // Control/Status
++        STCLO                       = 0x04,     // Low COUNTER
++        STCHI                       = 0x08,     // High Counter
++        STC0                        = 0x0C,     // Compare 0 - Used by GPU
++        STC1                        = 0x10,     // Compare 1 - Value used to generate interrupt 1
++        STC2                        = 0X14,     // Compare 2 - Used by GPU
++        STC3                        = 0X18      // Compare 3 - Value used to generate interrupt 3
++        // Interrupts mapped to "Enable IRQ 1" - c1 and c3 == irq1 and irq3
++    };
++
++public:
++    using TSC_Common::Time_Stamp;
++
++    static const unsigned int FREQUENCY = CLOCK;
++
++public:
++    TSC() {}
++
++    static Hertz frequency() { return CLOCK; }
++    static PPB accuracy() { return ACCURACY; }
++
++    static Time_Stamp time_stamp() {
++
++#ifdef __cortex_a__
++
++#if defined(__mmod_raspberry_pi3__)
++        return reg(STCLO);
++#else
++        if(sizeof(Time_Stamp) == sizeof(CPU::Reg32))
++            return reg(GTCTRL);
++
++        Time_Stamp high;
++        CPU::Reg32 low;
++
++        do {
++            high = reg(GTCTRH);
++            low = reg(GTCTRL);
++        } while(reg(GTCTRH) != high);
++
++        return (high << 32) | low;
++
++#endif
++
++#endif
++#ifdef __cortex_m__
++
++        return (_overflow << 32) + reg(GPTMTAR); // Not supported by LM3S811 on QEMU (version 2.7.50)
++
++#endif
++
++    }
++
++private:
++    static void init();
++
++    static volatile CPU::Reg32 & reg(unsigned int o) { return reinterpret_cast<volatile CPU::Reg32 *>(Memory_Map::TSC_BASE)[o / sizeof(CPU::Reg32)]; }
++
++#if defined(__mmod_emote3__) || defined(__mmod_lm3s811__)
++
++    static void int_handler(IC_Common::Interrupt_Id int_id) { _overflow++; }
++
++    static volatile Time_Stamp _overflow;
++
++#endif
++
++};
++
++__END_SYS
++
++#endif
+diff --git a/include/architecture/mmu.h b/include/architecture/mmu.h
+index 17ea7d9..d2dd892 100644
+--- a/include/architecture/mmu.h
++++ b/include/architecture/mmu.h
+@@ -190,7 +190,7 @@ public:
+         if(bytes) {
+             List::Element * e = _free.search_decrementing(bytes);
+             if(e)
+-                phy = reinterpret_cast<unsigned int>(e->object()) + e->size();
++                phy = reinterpret_cast<unsigned long>(e->object()) + e->size();
+             else
+                 db<MMU>(ERR) << "MMU::alloc() failed!" << endl;
+         }
+diff --git a/include/machine/cortex/cortex_ic.h b/include/machine/cortex/cortex_ic.h
+index b588a6f..d73ecc0 100644
+--- a/include/machine/cortex/cortex_ic.h
++++ b/include/machine/cortex/cortex_ic.h
+@@ -93,13 +93,13 @@ private:
+     static void hard_fault(Interrupt_Id i);
+ 
+     // Physical handler
+-    static void entry() __attribute__ ((naked));
+-    static void prefetch_abort() __attribute__ ((naked));
+-    static void undefined_instruction() __attribute__ ((naked));
+-    static void software_interrupt() __attribute__ ((naked));
+-    static void data_abort() __attribute__ ((naked));
+-    static void reserved() __attribute__ ((naked));
+-    static void fiq() __attribute__ ((naked));
++    static void entry() ;
++    static void prefetch_abort() ;
++    static void undefined_instruction() ;
++    static void software_interrupt() ;
++    static void data_abort() ;
++    static void reserved();
++    static void fiq() ;
+ 
+     static void kill();
+ 
+diff --git a/include/system/config.h b/include/system/config.h
+index 86f954c..1428bb6 100644
+--- a/include/system/config.h
++++ b/include/system/config.h
+@@ -7,15 +7,15 @@
+ // ARCHITECTURE, MACHINE, AND APPLICATION SELECTION
+ // This section is generated automatically from makedefs by $EPOS/etc/makefile
+ //============================================================================
+-#define SMOD xxx
+-#define ARCH xxx
+-#define MACH xxx
+-#define MMOD xxx
+-#define APPL xxx
+-#define __mode_xxx__
+-#define __arch_xxx__
+-#define __mach_xxx__
+-#define __mmod_xxx__
++#define SMOD builtin
++#define ARCH armv8
++#define MACH cortex
++#define MMOD raspberry_pi3
++#define APPL hello
++#define __mode_builtin__
++#define __arch_armv8__
++#define __mach_cortex__
++#define __mmod_raspberry_pi3__
+ 
+ //============================================================================
+ // NAMESPACES AND DEFINITIONS
+diff --git a/include/utility/heap.h b/include/utility/heap.h
+index 3a786c0..4a02ed1 100644
+--- a/include/utility/heap.h
++++ b/include/utility/heap.h
+@@ -55,7 +55,7 @@ public:
+         int * addr = reinterpret_cast<int *>(e->object() + e->size());
+ 
+         if(typed)
+-            *addr++ = reinterpret_cast<int>(this);
++            *addr++ = reinterpret_cast<long>(this);
+         *addr++ = bytes;
+ 
+         db<Heaps>(TRC) << ") => " << reinterpret_cast<void *>(addr) << endl;
+diff --git a/makedefs b/makedefs
+index 09760e0..a9cbdf3 100644
+--- a/makedefs
++++ b/makedefs
+@@ -94,7 +94,7 @@ UUID                    = $(shell cat /proc/sys/kernel/random/uuid | sed 's/-//g
+ # Compiler prefixes
+ ia32_COMP_PREFIX	:= /usr/bin/x86_64-linux-gnu-
+ armv7_COMP_PREFIX	:= /usr/bin/arm-none-eabi-
+-armv8_COMP_PREFIX	:= /usr/bin/arm-none-eabi-
++armv8_COMP_PREFIX	:= /home/eyng/bin/gcc-arm-10.3-2021.07-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-
+ rv32_COMP_PREFIX	:= /usr/local/rv32/bin/riscv32-unknown-linux-gnu-
+ rv64_COMP_PREFIX	:= /usr/bin/riscv64-linux-gnu-
+ COMP_PREFIX		= $($(ARCH)_COMP_PREFIX)
+@@ -137,10 +137,10 @@ cortex_IMG_SUFFIX	:= .bin
+ endif
+ 
+ ifeq ($(MMOD),raspberry_pi3)
+-cortex_CC_FLAGS		:= -mcpu=cortex-a53 -mfloat-abi=hard -mfpu=vfp
++cortex_CC_FLAGS		:= -mcpu=cortex-a53 
+ cortex_AS_FLAGS		:= -mcpu=cortex-a53
+ cortex_LD_FLAGS		:=
+-cortex_EMULATOR		= qemu-system-aarch64 -M raspi2 -cpu cortex-a53 -smp 4 -m 1G -serial null -serial mon:stdio -nographic -no-reboot -device loader,file=$(APPLICATION).img,addr=$(IMAGE_ADDR),force-raw=on -kernel 
++cortex_EMULATOR		= qemu-system-aarch64 -M raspi3 -cpu cortex-a53 -smp 4 -m 1G -serial null -serial mon:stdio -nographic -no-reboot -device loader,file=$(APPLICATION).img,addr=$(IMAGE_ADDR),force-raw=on -kernel 
+ cortex_DEBUGGER		:= gdb
+ cortex_FLASHER		= $(TLS)/eposflash/eposflash-$(MMOD) -d /dev/ttyACM0 -f
+ cortex_MAGIC		:= --nmagic
+diff --git a/src/architecture/armv8/armv8_cpu.cc b/src/architecture/armv8/armv8_cpu.cc
+new file mode 100644
+index 0000000..ecd6546
+--- /dev/null
++++ b/src/architecture/armv8/armv8_cpu.cc
+@@ -0,0 +1,92 @@
++// EPOS ARMv8 CPU Mediator Implementation
++
++#include <architecture/armv8/armv8_cpu.h>
++
++__BEGIN_SYS
++
++// Class attributes
++unsigned int CPU::_cpu_clock;
++unsigned int CPU::_bus_clock;
++
++// Class methods
++void CPU::Context::save() volatile
++{
++    ASM("nop");
++// if(thumb)
++//     ASM("       orr     x12, #1                 \n");
++
++//     ASM("       str     x12, [%0, #-256]!         \n"
++//         "       ldr     x12, [sp], #240           \n"
++//         "       str     lr,  [%0, #-224]!         \n"
++//         "       str     x12, [%0, #-208]!         \n"
++//         "       str     x11, [%0, #-192]!         \n"
++//         "       str     x10, [%0, #-176]!         \n"
++//         "       str     x9,  [%0, #-160]!         \n"
++//         "       str     x8,  [%0, #-144]!         \n"
++//         "       str     x7,  [%0, #-128]!         \n"
++//         "       str     x6,  [%0, #-112]!         \n"
++//         "       str     x5,  [%0, #-96]!         \n"
++//         "       str     x4,  [%0, #-80]!         \n"
++//         "       str     x3,  [%0, #-64]!         \n"
++//         "       str     x2,  [%0, #-48]!         \n"
++//         "       str     x1,  [%0, #-32]!         \n"
++//         "       str     x0,  [%0, #-16]!          \n" : : "r"(this));
++//     psr_to_r12();
++//     ASM("       str     x12, [%0, #-8]!          \n"
++//         "       ldr     x12, [sp], #240         \n"
++//         "       add     %0, %0, #-240            \n"
++//         "       bx      lr                      \n" : : "r"(this));
++}
++
++void CPU::Context::load() const volatile
++{
++    ASM("nop"); // serialize the pipeline so that SP gets updated before the pop
++
++    ASM("nop");       // skip usp, ulr
++
++    ASM("nop");
++    r12_to_psr();                                           // the context is loaded in SVC; with multitasking, a second context drives a mode change at _int_leave
++    ASM("nop");
++}
++
++// This function assumes A[T]PCS (i.e. "o" is in r0/a0 and "n" is in r1/a1)
++void CPU::switch_context(Context ** o, Context * n)
++{
++    // Push the context into the stack and adjust "o" to match
++    ASM("nop");   // calculate the return address using the saved r12 as a temporary
++if(thumb)
++    ASM("nop");   // adjust the return address in thumb mode
++
++    ASM("nop");   // save calculated PC
++
++    if(Traits<FPU>::enabled && !Traits<FPU>::user_save)
++        fpu_save();
++
++    psr_to_r12();                                       // save PSR to temporary register r12
++    ASM("nop");   // save PSR
++
++    ASM("nop");   // skip ulr and usp
++
++    ASM("nop");   // update Context * volatile * o
++
++    // Set the stack pointer to "n" and pop the context
++    ASM("nop");   // serialize the pipeline so SP gets updated before the pop
++
++    ASM("nop");   // skip usp and ulr
++
++    ASM("nop");   // pop PSR into temporary register r12
++    r12_to_psr();                                       // restore PSR
++
++    if(Traits<FPU>::enabled && !Traits<FPU>::user_save)
++        fpu_restore();
++
++    ASM("nop");   // pop all registers (r0 first, LR last)
++
++#ifdef __cortex_m__
++    int_enable();
++#endif
++
++    ASM("nop");   // return
++}
++
++__END_SYS
+diff --git a/src/architecture/armv8/armv8_cpu_init.cc b/src/architecture/armv8/armv8_cpu_init.cc
+new file mode 100644
+index 0000000..0f127df
+--- /dev/null
++++ b/src/architecture/armv8/armv8_cpu_init.cc
+@@ -0,0 +1,31 @@
++// EPOS ARMv8 CPU Mediator Initialization
++
++#include <architecture.h>
++
++extern "C" { void __epos_library_app_entry(void); }
++
++__BEGIN_SYS
++
++void CPU::init()
++{
++    db<Init, CPU>(TRC) << "CPU::init()" << endl;
++
++    if(CPU::id() == 0) {
++        if(Traits<MMU>::enabled)
++            MMU::init();
++        else
++            db<Init, MMU>(WRN) << "MMU is disabled!" << endl;
++    }
++
++#ifdef __PMU_H
++    if(Traits<PMU>::enabled)
++        PMU::init();
++#endif
++
++#ifdef __TSC_H
++    if(Traits<TSC>::enabled)
++        TSC::init();
++#endif
++}
++
++__END_SYS
+diff --git a/src/architecture/armv8/armv8_cpu_test.cc b/src/architecture/armv8/armv8_cpu_test.cc
+new file mode 100644
+index 0000000..dd345a0
+--- /dev/null
++++ b/src/architecture/armv8/armv8_cpu_test.cc
+@@ -0,0 +1,63 @@
++// EPOS ARMv8 Test Program
++
++#include <architecture/cpu.h>
++
++using namespace EPOS;
++
++int main()
++{
++    OStream cout;
++    cout << "ARMv8 test" << endl;
++
++    CPU cpu;
++
++    {
++        volatile bool lock = false;
++        if(cpu.tsl(lock))
++            cout << "tsl(): doesn't function properly!(1)" << endl;
++        else
++            if(cpu.tsl(lock))
++                cout << "tsl(): ok" << endl;
++            else
++                cout << "tsl(): doesn't function properly!(2)" << endl;
++    }
++    {
++        volatile int number = 100;
++        volatile int tmp;
++        if((tmp = cpu.finc(number)) != 100)
++            cout << "finc(): doesn't function properly (n=" << tmp << ", should be 100)!" << endl;
++        else
++            if((tmp = cpu.finc(number)) != 101)
++                cout << "finc(): doesn't function properly (n=" << tmp << ", should be 101)!" << endl;
++            else
++                cout << "finc(): ok" << endl;
++    }
++    {
++        volatile int number = 100;
++        volatile int tmp;
++        if((tmp = cpu.fdec(number)) != 100)
++            cout << "fdec(): doesn't function properly (n=" << tmp << ", should be 100)!" << endl;
++        else
++            if((tmp = cpu.fdec(number)) != 99)
++                cout << "fdec(): doesn't function properly (n=" << tmp << ", should be 99)!" << endl;
++            else
++                cout << "fdec(): ok" << endl;
++    }
++    {
++        volatile int number = 100;
++        volatile int compare = number;
++        volatile int replacement = number - 1;
++        volatile int tmp;
++        if((tmp = cpu.cas(number, compare, replacement)) != compare)
++            cout << "cas(): doesn't function properly [1] (n=" << tmp << ", should be " << compare << ")!" << endl;
++        else
++            if((tmp = cpu.cas(number, compare, replacement)) != replacement)
++                cout << "cas(): doesn't function properly [2] (n=" << tmp << ", should be " << replacement << ")!" << endl;
++            else
++                cout << "cas(): ok" << endl;
++    }
++
++    cout << "ARMv8 test finished" << endl;
++
++    return 0;
++}
+diff --git a/src/architecture/armv8/armv8_crt0.S b/src/architecture/armv8/armv8_crt0.S
+new file mode 100644
+index 0000000..5180497
+--- /dev/null
++++ b/src/architecture/armv8/armv8_crt0.S
+@@ -0,0 +1,34 @@
++// EPOS ARMv8 Program Starter
++
++        .file "armv8_crt0.S"
++
++        .align  2
++        .global _start
++        .type   _start, function
++_start:
++
++#ifdef __cortex_m__
++        // Allocate a temporary stack for INIT, since we don't have a proper SETUP for Cortex-M
++        ldr     x0, =__boot_stack__
++        mov     sp, x0
++
++        // Clear the BSS
++        bl      _clear_bss
++#endif
++
++#ifdef __cortex_a__
++        // Temporary stack(s) for INIT were created and configure by SETUP
++        // BSS was cleared by SETUP
++#endif
++
++        bl      _init
++
++        .align  2
++        .globl  __epos_app_entry
++        .type   __epos_app_entry, function
++__epos_app_entry:
++        // Main's stack was allocated by Thread::init()
++        bl      main
++        str    x0, [sp,#-16]!         // save main's return value to be used by exit()
++        bl      _fini
++        bl      _exit
+diff --git a/src/architecture/armv8/armv8_mmu.cc b/src/architecture/armv8/armv8_mmu.cc
+new file mode 100644
+index 0000000..675302e
+--- /dev/null
++++ b/src/architecture/armv8/armv8_mmu.cc
+@@ -0,0 +1,10 @@
++// EPOS ARMv8 MMU Mediator Implementation
++
++#include <architecture/armv8/armv8_mmu.h>
++
++__BEGIN_SYS
++
++ARMv8_MMU::List ARMv8_MMU::_free[colorful * COLORS + 1];
++ARMv8_MMU::Page_Directory * ARMv8_MMU::_master;
++
++__END_SYS
+diff --git a/src/architecture/armv8/armv8_mmu_init.cc b/src/architecture/armv8/armv8_mmu_init.cc
+new file mode 100644
+index 0000000..cf3ef16
+--- /dev/null
++++ b/src/architecture/armv8/armv8_mmu_init.cc
+@@ -0,0 +1,20 @@
++// EPOS ARMv8 MMU Mediator Initialization
++
++#include <architecture/mmu.h>
++#include <system.h>
++
++__BEGIN_SYS
++
++void ARMv8_MMU::init()
++{
++    db<Init, MMU>(TRC) << "MMU::init()" << endl;
++    db<Init, MMU>(INF) << "MMU::init()" << System::info() << hex << ", base=" << System::info()->pmm.free1_base << ", top=" << System::info()->pmm.free1_top << endl;
++    free(System::info()->pmm.free1_base, pages(System::info()->pmm.free1_top - System::info()->pmm.free1_base));
++   
++    // Remember the master page directory (created during SETUP)
++    _master = current();
++    db<Init, MMU>(INF) << "MMU::master page directory=" << _master << endl;
++}
++
++__END_SYS
++
+diff --git a/src/architecture/armv8/armv8_pmu.cc b/src/architecture/armv8/armv8_pmu.cc
+new file mode 100644
+index 0000000..8d75040
+--- /dev/null
++++ b/src/architecture/armv8/armv8_pmu.cc
+@@ -0,0 +1,109 @@
++// EPOS ARMv8 PMU Events Declaration
++
++#include <architecture/pmu.h>
++
++#if defined(__mmod_zynq__) | defined(__mmod_raspberry_pi3__) | defined(__mmod_realview_pbx__)
++
++__BEGIN_SYS
++
++const ARMv8_A_PMU::Event ARMv8_A_PMU::_events[ARMv8_A_PMU::EVENTS] = {
++    ARMv8_A_PMU::INSTRUCTIONS_ARCHITECTURALLY_EXECUTED,  // 0
++    ARMv8_A_PMU::IMMEDIATE_BRANCH,                       // 1
++    ARMv8_A_PMU::CYCLE,                                  // 2
++    ARMv8_A_PMU::BRANCHES_ARCHITECTURALLY_EXECUTED,      // 3
++    ARMv8_A_PMU::MISPREDICTED_BRANCH,                    // 4
++    ARMv8_A_PMU::L1D_ACCESS,                             // 5
++    ARMv8_A_PMU::L2D_ACCESS,                             // 6
++    ARMv8_A_PMU::L1D_REFILL,                             // 7
++    ARMv8_A_PMU::DATA_MEMORY_ACCESS,                     // 8 (LLC MISS)
++    ARMv8_A_PMU::L1I_REFILL,                             // 9
++    ARMv8_A_PMU::L1I_TLB_REFILL,                         // 10
++    ARMv8_A_PMU::PREDICTABLE_BRANCH_EXECUTED,            // 11
++    ARMv8_A_PMU::L1D_WRITEBACK,                          // 12
++    ARMv8_A_PMU::L2D_WRITEBACK,                          // 13
++    ARMv8_A_PMU::L2D_REFILL,                             // 14
++    ARMv8_A_PMU::UNALIGNED_LOAD_STORE,                   // 15
++    ARMv8_A_PMU::L1I_ACCESS,                             // 16
++    ARMv8_A_PMU::L1D_TLB_REFILL,                         // 17
++    ARMv8_A_PMU::EXCEPTION_TAKEN,                        // 18
++    ARMv8_A_PMU::BUS_ACCESS,                             // 19
++    ARMv8_A_PMU::LOCAL_MEMORY_ERROR,                     // 20
++    ARMv8_A_PMU::INSTRUCTION_SPECULATIVELY_EXECUTED,     // 21
++    ARMv8_A_PMU::BUS_CYCLE,                              // 22
++    ARMv8_A_PMU::CHAIN,                                  // 23
++    ARMv8_A_PMU::// Cortex-A9 specific events
++    ARMv8_A_PMU::JAVA_BYTECODE_EXECUTE,                  // 24
++    ARMv8_A_PMU::SOFTWARE_JAVA_BYTECODE_EXECUTED,        // 25
++    ARMv8_A_PMU::JAZELLE_BACKWARDS_BRANCHES_EXECUTED,    // 26
++    ARMv8_A_PMU::COHERENT_LINEFILL_MISS,                 // 27
++    ARMv8_A_PMU::COHERENT_LINEFILL_HIT,                  // 28
++    ARMv8_A_PMU::ICACHE_DEPENDENT_STALL_CYCLES,          // 29
++    ARMv8_A_PMU::DCACHE_DEPENDENT_STALL_CYCLES,          // 30
++    ARMv8_A_PMU::MAIN_TLB_MISS_STALL_CYCLES,             // 31
++    ARMv8_A_PMU::STREX_PASSED,                           // 32
++    ARMv8_A_PMU::STREX_FAILED,                           // 33
++    ARMv8_A_PMU::DATA_EVICTION,                          // 34
++    ARMv8_A_PMU::ISSUE_DOESNT_DISPATCH,                  // 35
++    ARMv8_A_PMU::ISSUE_EMPTY,                            // 36
++    ARMv8_A_PMU::ISSUE_CORE_RENAMING,                    // 37
++    ARMv8_A_PMU::PREDICTABLE_FUNCTION_RETURNS,           // 38
++    ARMv8_A_PMU::MAIN_EXECUTION_UNIT_RETURNS,            // 39
++    ARMv8_A_PMU::SECOND_EXECUTION_UNIT_RETURNS,          // 40
++    ARMv8_A_PMU::LOAD_STORE_INSTRUCTIONS,                // 41
++    ARMv8_A_PMU::FLOATING_POINT_INSTRUCTIONS,            // 42
++    ARMv8_A_PMU::NEON_INSTRUCTIONS,                      // 43
++    ARMv8_A_PMU::PROCESSOR_STALL_PLD,                    // 44
++    ARMv8_A_PMU::PROCESSOR_STALL_WRITE_MEMORY,           // 45
++    ARMv8_A_PMU::PROCESSOR_STALL_ITLB_MISS,              // 46
++    ARMv8_A_PMU::PROCESSOR_STALL_DTLB_MISS,              // 47
++    ARMv8_A_PMU::PROCESSOR_STALL_IUTLB_MISS,             // 48
++    ARMv8_A_PMU::PROCESSOR_STALL_DUTLB_MISS,             // 49
++    ARMv8_A_PMU::PROCESSOR_STALL_DMB,                    // 50
++    ARMv8_A_PMU::INTEGER_CLOCK_ENABLED,                  // 51
++    ARMv8_A_PMU::DATA_ENGINE_CLOCK_ENABLED,              // 52
++    ARMv8_A_PMU::ISB_INSTRUCTIONS,                       // 53
++    ARMv8_A_PMU::DSB_INSTRUCTIONS,                       // 54
++    ARMv8_A_PMU::DMB_INSTRUCTIONS,                       // 55
++    ARMv8_A_PMU::EXTERNAL_INTERRUPTS,                    // 56
++    ARMv8_A_PMU::PLE_CACHE_LINE_REQUEST_COMPLETED,       // 57
++    ARMv8_A_PMU::PLE_CACHE_LINE_REQUEST_SKIPPED,         // 58
++    ARMv8_A_PMU::PLE_FIFO_FLUSH,                         // 59
++    ARMv8_A_PMU::PLE_REQUEST_COMPLETED,                  // 60
++    ARMv8_A_PMU::PLE_FIFO_OVERFLOW,                      // 61
++    ARMv8_A_PMU::PLE_REQUEST_PROGRAMMED,                 // 62
++    ARMv8_A_PMU::// ARM Cortex-A53 specific events
++    ARMv8_A_PMU::BUS_ACCESS_LD,                          // 63
++    ARMv8_A_PMU::BUS_ACCESS_ST,                          // 64
++    ARMv8_A_PMU::BR_INDIRECT_SPEC,                       // 65
++    ARMv8_A_PMU::EXC_IRQ,                                // 66
++    ARMv8_A_PMU::EXC_FIQ,                                // 67
++    ARMv8_A_PMU::EXTERNAL_MEM_REQUEST,                   // 68
++    ARMv8_A_PMU::EXTERNAL_MEM_REQUEST_NON_CACHEABLE,     // 69
++    ARMv8_A_PMU::PREFETCH_LINEFILL,                      // 70
++    ARMv8_A_PMU::ICACHE_THROTTLE,                        // 71
++    ARMv8_A_PMU::ENTER_READ_ALLOC_MODE,                  // 72
++    ARMv8_A_PMU::READ_ALLOC_MODE,                        // 73
++    ARMv8_A_PMU::PRE_DECODE_ERROR,                       // 74
++    ARMv8_A_PMU::DATA_WRITE_STALL_ST_BUFFER_FULL,        // 75
++    ARMv8_A_PMU::SCU_SNOOPED_DATA_FROM_OTHER_CPU,        // 76
++    ARMv8_A_PMU::CONDITIONAL_BRANCH_EXECUTED,            // 77
++    ARMv8_A_PMU::IND_BR_MISP,                            // 78
++    ARMv8_A_PMU::IND_BR_MISP_ADDRESS_MISCOMPARE,         // 79
++    ARMv8_A_PMU::CONDITIONAL_BRANCH_MISP,                // 80
++    ARMv8_A_PMU::L1_ICACHE_MEM_ERROR,                    // 81
++    ARMv8_A_PMU::L1_DCACHE_MEM_ERROR,                    // 82
++    ARMv8_A_PMU::TLB_MEM_ERROR,                          // 83
++    ARMv8_A_PMU::EMPTY_DPU_IQ_NOT_GUILTY,                // 84
++    ARMv8_A_PMU::EMPTY_DPU_IQ_ICACHE_MISS,               // 85
++    ARMv8_A_PMU::EMPTY_DPU_IQ_IMICRO_TLB_MISS,           // 86
++    ARMv8_A_PMU::EMPTY_DPU_IQ_PRE_DECODE_ERROR,          // 87
++    ARMv8_A_PMU::INTERLOCK_CYCLE_NOT_GUILTY,             // 88
++    ARMv8_A_PMU::INTERLOCK_CYCLE_LD_ST_WAIT_AGU_ADDRESS, // 89
++    ARMv8_A_PMU::INTERLOCK_CYCLE_ADV_SIMD_FP_INST,       // 90
++    ARMv8_A_PMU::INTERLOCK_CYCLE_WR_STAGE_STALL_BC_MISS, // 91
++    ARMv8_A_PMU::INTERLOCK_CYCLE_WR_STAGE_STALL_BC_STR   // 92
++};
++
++__END_SYS
++
++#endif
+\ No newline at end of file
+diff --git a/src/architecture/armv8/armv8_pmu_init.cc b/src/architecture/armv8/armv8_pmu_init.cc
+new file mode 100644
+index 0000000..f3b6341
+--- /dev/null
++++ b/src/architecture/armv8/armv8_pmu_init.cc
+@@ -0,0 +1,26 @@
++// EPOS ARMv8 PMU Mediator Initialization
++
++#include <architecture/pmu.h>
++
++#if defined(__mmod_zynq__) | defined(__mmod_raspberry_pi3__) | defined(__mmod_realview_pbx__)
++
++__BEGIN_SYS
++
++void ARMv8_A_PMU::init()
++{
++    db<Init, PMU>(TRC) << "PMU::init()" << endl;
++
++    // Set global enable, reset all counters including cycle counter, and
++    // export the events
++    pmcr(pmcr() | PMCR_E | PMCR_P | PMCR_C | PMCR_X);
++
++    // Clear all overflows:
++    pmovsr(~0);
++
++    // Enable cycle counter
++    pmcntenset(pmcntenset() | PMCNTENSET_C);
++}
++
++__END_SYS
++
++#endif
+diff --git a/src/architecture/armv8/armv8_tsc.cc b/src/architecture/armv8/armv8_tsc.cc
+new file mode 100644
+index 0000000..ec8028a
+--- /dev/null
++++ b/src/architecture/armv8/armv8_tsc.cc
+@@ -0,0 +1,13 @@
++// EPOS ARMv8 Time-Stamp Counter Mediator Implementation
++
++#include <architecture/tsc.h>
++
++__BEGIN_SYS
++
++#if defined(__mmod_emote3__) || defined(__mmod_lm3s811__)
++
++volatile TSC::Time_Stamp TSC::_overflow = 0;
++
++#endif
++
++__END_SYS
+diff --git a/src/architecture/armv8/armv8_tsc_init.cc b/src/architecture/armv8/armv8_tsc_init.cc
+new file mode 100644
+index 0000000..74b63f9
+--- /dev/null
++++ b/src/architecture/armv8/armv8_tsc_init.cc
+@@ -0,0 +1,53 @@
++// EPOS ARMv8 Time-Stamp Counter Mediator Initialization
++
++
++#include <architecture/tsc.h>
++#include <machine/timer.h>
++
++#if defined(__cortex_a__)
++
++__BEGIN_SYS
++
++void TSC::init()
++{
++    db<Init, TSC>(TRC) << "TSC::init()" << endl;
++
++
++    if(CPU::id() == 0) {
++        // Disable counting before programming
++        reg(GTCLR) = 0;
++
++        // Set timer to 0
++        reg(GTCTRL) = 0;
++        reg(GTCTRH) = 0;
++
++        // Re-enable counting
++        reg(GTCLR) = 1;
++    }
++}
++
++__END_SYS
++
++#elif defined(__cortex_m__)
++
++#include __HEADER_MMOD(sysctrl)
++#include __HEADER_MMOD(memory_map)
++
++__BEGIN_SYS
++
++void TSC::init()
++{
++    db<Init, TSC>(TRC) << "TSC::init()" << endl;
++
++    SysCtrl * scr = reinterpret_cast<SysCtrl *>(Memory_Map::SCR_BASE);
++    GPTM * gptm = reinterpret_cast<GPTM *>(Memory_Map::TIMER0_BASE + 0x1000 * (Traits<Timer>::UNITS - 1));
++
++    scr->clock_timer(Traits<Timer>::UNITS - 1);
++    gptm->config(0xffffffff, true, (Traits<Build>::MODEL == Traits<Build>::LM3S811) ? false : true);
++
++    // time-out interrupt will be registered later at IC::init(), because IC hasn't been initialized yet
++}
++
++__END_SYS
++
++#endif
+diff --git a/src/architecture/armv8/makefile b/src/architecture/armv8/makefile
+new file mode 100644
+index 0000000..0a2eaff
+--- /dev/null
++++ b/src/architecture/armv8/makefile
+@@ -0,0 +1,33 @@
++# EPOS ARMv7 Architecture Makefile
++
++include ../../../makedefs
++
++OBJS := $(subst .cc,.o,$(shell find *.cc | grep -v _init | grep -v _test))
++CRTS := $(subst .S,.o,$(shell find *.S | grep crt)) $(ARCH)_crtbegin.o $(ARCH)_crtend.o 
++CRTSI := $(subst .S,.s,$(shell find *.S | grep crt))
++INITS := $(subst .cc,.o,$(shell find *.cc | grep _init))
++
++all:		crts $(LIBARCH) $(LIBINIT)
++
++crts:		$(CRTS)
++		$(INSTALL) $(ARCH)_crt0.o $(LIB)/crt0_$(MMOD).o
++		$(INSTALL) $(ARCH)_crtbegin.o $(LIB)/crtbegin_$(MMOD).o
++		$(INSTALL) $(ARCH)_crtend.o $(LIB)/crtend_$(MMOD).o
++
++.INTERMEDIATE:	$(CRTSI)
++
++$(LIBARCH):	$(LIBARCH)($(OBJS))
++
++$(LIBINIT):	$(LIBINIT)($(INITS))
++
++cpu.o		: cpu.cc
++		$(CXX) $(CXXFLAGS) -fomit-frame-pointer $<
++
++$(ARCH)_crtbegin.o: ../common/crtbegin.c
++		$(CC) $(CCFLAGS) $< -o $@
++
++$(ARCH)_crtend.o: ../common/crtend.c
++		$(CC) $(CCFLAGS) $< -o $@
++
++clean:
++		$(CLEAN) *.o *.s *_test
+diff --git a/src/architecture/common/mmu_common_init.cc b/src/architecture/common/mmu_common_init.cc
+index e084dc2..448eae2 100644
+--- a/src/architecture/common/mmu_common_init.cc
++++ b/src/architecture/common/mmu_common_init.cc
+@@ -19,7 +19,7 @@ void No_MMU::init()
+     // Allocations (using Grouping_List<Frame>::search_decrementing() start from the end
+     // To preserve the BOOT stacks until the end of INIT, the free memory list initialization is split in two sections
+     // with allocations (from the end) of the first section taking place first
+-    free(&_end, pages(Memory_Map::RAM_TOP + 1 - Traits<Machine>::STACK_SIZE * Traits<Machine>::CPUS - reinterpret_cast<unsigned int>(&_end)));
++    free(&_end, pages(Memory_Map::RAM_TOP + 1 - Traits<Machine>::STACK_SIZE * Traits<Machine>::CPUS - reinterpret_cast<unsigned long>(&_end)));
+     free(Memory_Map::RAM_TOP + 1 - Traits<Machine>::STACK_SIZE * Traits<Machine>::CPUS, pages(Traits<Machine>::STACK_SIZE * Traits<Machine>::CPUS));
+ }
+ 
+diff --git a/src/machine/cortex/raspberry_pi3/raspberry_pi3_ic.cc b/src/machine/cortex/raspberry_pi3/raspberry_pi3_ic.cc
+index e64c30d..9858404 100644
+--- a/src/machine/cortex/raspberry_pi3/raspberry_pi3_ic.cc
++++ b/src/machine/cortex/raspberry_pi3/raspberry_pi3_ic.cc
+@@ -5,7 +5,7 @@
+ #include <machine/timer.h>
+ #include <process.h>
+ 
+-extern "C" { void _int_entry() __attribute__ ((naked, nothrow, alias("_ZN4EPOS1S2IC5entryEv"))); }
++extern "C" { void _int_entry() __attribute__ ((nothrow, alias("_ZN4EPOS1S2IC5entryEv"))); }
+ extern "C" { void _dispatch(unsigned int) __attribute__ ((alias("_ZN4EPOS1S2IC8dispatchEj"))); }
+ extern "C" { void _eoi(unsigned int) __attribute__ ((alias("_ZN4EPOS1S2IC3eoiEj"))); }
+ extern "C" { void _undefined_instruction() __attribute__ ((alias("_ZN4EPOS1S2IC21undefined_instructionEv"))); }
+@@ -146,22 +146,7 @@ void IC::entry()
+ {
+     // We assume A[T]PCS ARM ABI, so any function using registers r4 until r11 will save those upon beginning and restore them when exiting. 
+     // An interrupt can happen in the middle of one such function, but if the ISR drives the PC through other functions that use the same registers, they will save and restore them. We therefore don't need to save r4-r11 here.
+-    ASM("       .equ    MODE_IRQ, 0x12                                  \n"
+-        "       .equ    MODE_SVC, 0x13                                  \n"
+-        "       .equ    IRQ_BIT,  0x80                                  \n"
+-        "       .equ    FIQ_BIT,  0x40                                  \n"
+-        "       msr     cpsr_c, #MODE_SVC | IRQ_BIT | FIQ_BIT           \n"     // go to SVC mode
+-        "       stmfd   sp!, {r0-r3, r12, lr, pc}                       \n"     // save current context (lr, sp and spsr are banked registers)
+-        "       msr     cpsr_c, #MODE_IRQ | IRQ_BIT | FIQ_BIT           \n"     // go to IRQ mode to recover LR
+-        "       sub     r0, lr, #4                                      \n"     // r0 = return address as entering IRQ more
+-        "       mrs     r1, spsr                                        \n"     // r1 = IRQ_spsr (to be visible at SVC)
+-        "       msr     cpsr_c, #MODE_SVC | IRQ_BIT | FIQ_BIT           \n"     // go back to SVC mode
+-        "       str     r0, [sp, #24]                                   \n"     // overwrite saved PC with r0 (saved return address)
+-        "       push    {r1}                                            \n"     // push IRQ_spsr
+-        "       bl      _dispatch                                       \n"
+-        "       pop     {r1}                                            \n"     // pop IRQ_spsr into SVC_spsr
+-        "       msr     spsr_cfxs, r1                                   \n"
+-        "       ldmfd   sp!, {r0-r3, r12, lr, pc}^                      \n");   // restore the context (including PC in ldmfd cause a mode change to the mode before the interrupt)
++    ASM("nop");   // restore the context (including PC in ldmfd cause a mode change to the mode before the interrupt)
+ }
+ 
+ void IC::dispatch(unsigned int i)
