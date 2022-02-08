@@ -1,6 +1,7 @@
 // EPOS Segment Test Program
 
 #include <memory.h>
+#include <process.h>
 
 using namespace EPOS;
 
@@ -23,8 +24,8 @@ int main()
     cout << "  extra segment 2 => " << ES2_SIZE << " bytes, done!" << endl;
 
     cout << "Attaching segments:" << endl;
-    CPU::Log_Addr * extra1 = self.attach(es1);
-    CPU::Log_Addr * extra2 = self.attach(es2);
+    CPU::Log_Addr * extra1 = as->attach(es1);
+    CPU::Log_Addr * extra2 = as->attach(es2);
     cout << "  extra segment 1 => " << extra1 << " done!" << endl;
     cout << "  extra segment 2 => " << extra2 << " done!" << endl;
 
@@ -34,8 +35,8 @@ int main()
     cout << "  done!" << endl;
 
     cout << "Detaching segments:";
-    self.detach(es1);
-    self.detach(es2);
+    as->detach(es1);
+    as->detach(es2);
     cout << "  done!" << endl;
 
     cout << "Deleting segments:";
