@@ -247,15 +247,22 @@ public:
 
     Interrupt_Id int_id() {
         unsigned int cpu = CPU::id();
+        kout << "cpu_id = " << cpu << endl;
         Reg32 src = mailbox(CORE0_IRQ_SRC + 4 * cpu);
         // Does not matter the CPU from where the IPI came from
         // 0x10 = CPU 0 | 0x20 = CPU 1 | 0x40 = CPU 2 | 0x80 = CPU 3
-        if(src & 0x10 || src & 0x20 || src & 0x40 || src & 0x80)
+        kout << "reg32 src = " << src << endl;
+        if(src & 0x10 || src & 0x20 || src & 0x40 || src & 0x80) {
+            kout << "return CORE0_MAILBOX0_IRQ = " << CORE0_MAILBOX0_IRQ << endl;
             return CORE0_MAILBOX0_IRQ;
-        else if(src & 0x800)
+        }
+        else if(src & 0x800) {
+            kout << "return CORE0_MAILBOX_TIMER_IRQ = " << CORE0_MAILBOX_TIMER_IRQ << endl;
             return CORE0_MAILBOX_TIMER_IRQ;
-        else
+        } else {
+            kout << "return LAST_INT = " << LAST_INT << endl;
             return LAST_INT;
+        }
     }
 
     void ipi(unsigned int cpu, Interrupt_Id id) {

@@ -1054,7 +1054,7 @@ void _vector_table()
                         .balign 128                                             \t\n\
         .sync_curr_sp0: str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, vj_sync_curr_sp0                               \t\n\
                         blr x29                                                 \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
@@ -1062,7 +1062,7 @@ void _vector_table()
                         .balign 128                                             \t\n\
         .irq_curr_sp0:  str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, vj_irq_curr_sp0                                \t\n\
                         blr x29                                                 \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
@@ -1070,7 +1070,7 @@ void _vector_table()
                         .balign 128                                             \t\n\
         .fiq_curr_sp0:  str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, vj_fiq_curr_sp0                                \t\n\
                         blr x29                                                 \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
@@ -1078,7 +1078,7 @@ void _vector_table()
                         .balign 128                                             \t\n\
         .error_curr_sp0:str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, vj_serr_curr_sp0                               \t\n\
                         blr x29                                                 \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
@@ -1087,7 +1087,7 @@ void _vector_table()
                         .balign 128                                             \t\n\
         .sync_curr_spx: str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, vj_sync_curr_spx                               \t\n\
                         blr x29                                                 \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
@@ -1095,7 +1095,7 @@ void _vector_table()
                         .balign 128                                             \t\n\
         .irq_curr_spx:  str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, vj_irq_curr_spx                                \t\n\
                         blr x29                                                 \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
@@ -1103,7 +1103,7 @@ void _vector_table()
                         .balign 128                                             \t\n\
         .fiq_curr_spx:  str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, vj_fiq_curr_spx                                \t\n\
                         blr x29                                                 \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
@@ -1111,7 +1111,7 @@ void _vector_table()
                         .balign 128                                             \t\n\
         .error_curr_spx:str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, vj_serr_curr_spx                               \t\n\
                         blr x29                                                 \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
@@ -1120,7 +1120,7 @@ void _vector_table()
                         .balign 128                                             \t\n\
         .sync_lower64:  str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, vj_sync_lower_aa64                             \t\n\
                         blr x29                                                 \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
@@ -1128,7 +1128,7 @@ void _vector_table()
                         .balign 128                                             \t\n\
         .irq_lower64:   str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, vj_irq_lower_aa64                              \t\n\
                         blr x29                                                 \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
@@ -1136,7 +1136,7 @@ void _vector_table()
                         .balign 128                                             \t\n\
         .fiq_lower64:   str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, vj_fiq_lower_aa64                              \t\n\
                         blr x29                                                 \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
@@ -1144,7 +1144,7 @@ void _vector_table()
                         .balign 128                                             \t\n\
         .error_lower64: str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, vj_serr_lower_aa64                             \t\n\
                         blr x29                                                 \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
@@ -1153,7 +1153,7 @@ void _vector_table()
                         .balign 128                                             \t\n\
         .sync_lower32:  str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, vj_sync_lower_aa32                             \t\n\
                         blr x29                                                 \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
@@ -1161,7 +1161,7 @@ void _vector_table()
                         .balign 128                                             \t\n\
         .irq_lower32:   str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, vj_irq_lower_aa32                              \t\n\
                         blr x29                                                 \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
@@ -1169,7 +1169,7 @@ void _vector_table()
                         .balign 128                                             \t\n\
         .fiq_lower32:   str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, vj_fiq_lower_aa32                              \t\n\
                         blr x29                                                 \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
@@ -1177,13 +1177,33 @@ void _vector_table()
                         .balign 128                                             \t\n\
         .error_lower32: str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, vj_serr_lower_aa32                             \t\n\
                         blr x29                                                 \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
                                                                                 \t\n\
                         .balign 128                                             \t\n\
-        .ic_entry: .dword 0x0                                                   \t");
+                                                                                \t\n\
+        // vector jump adress table                                             \t\n\
+        .global _vector_jat                                                     \t\n\
+        _vector_jat:                                                            \t\n\
+        vj_sync_curr_sp0:       .dword 0x0                                      \t\n\
+        vj_irq_curr_sp0:        .dword 0x0                                      \t\n\
+        vj_fiq_curr_sp0:        .dword 0x0                                      \t\n\
+        vj_serr_curr_sp0:       .dword 0x0                                      \t\n\
+        vj_sync_curr_spx:       .dword 0x0                                      \t\n\
+        vj_irq_curr_spx:        .dword 0x0                                      \t\n\
+        vj_fiq_curr_spx:        .dword 0x0                                      \t\n\
+        vj_serr_curr_spx:       .dword 0x0                                      \t\n\
+        vj_sync_lower_aa64:     .dword 0x0                                      \t\n\
+        vj_irq_lower_aa64:      .dword 0x0                                      \t\n\
+        vj_fiq_lower_aa64:      .dword 0x0                                      \t\n\
+        vj_serr_lower_aa64:     .dword 0x0                                      \t\n\
+        vj_sync_lower_aa32:     .dword 0x0                                      \t\n\
+        vj_irq_lower_aa32:      .dword 0x0                                      \t\n\
+        vj_fiq_lower_aa32:      .dword 0x0                                      \t\n\
+        vj_serr_lower_aa32:     .dword 0x0                                      \t");
+        
 }
 
 void _reset()
