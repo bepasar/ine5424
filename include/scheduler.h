@@ -119,6 +119,47 @@ protected:
     volatile int _priority;
 };
 
+class Real_Time_Scheduler_Common: public Priority
+{
+protected:
+    template<typename ... Tn>
+    Real_Time_Scheduler_Common(int p, Tn & ... an): Priority(p ? p : 1) {}
+
+    template<typename ... Tn>
+    Real_Time_Scheduler_Common(int p, const Microsecond & period, const Microsecond & deadline):
+    Priority(p ? p : 1), _deadline(deadline ? deadline : period), _period(period) {}
+
+    Microsecond _period;
+    Microsecond _deadline;
+
+public:
+    const Microsecond period() { return _period; }
+    void period(const Microsecond & p) { _period = p; }
+
+    const Microsecond deadline() { return _deadline; }
+};
+
+
+class RM: public Real_Time_Scheduler_Common {
+public:
+    static const bool timed = true;
+    static const bool dynamic = false;
+    static const bool preemptive = true;
+
+public:
+    template<typename ... Tn>
+    RM(int p = NORMAL, Tn & ... an): Real_Time_Scheduler_Common(p) {}
+
+    template<typename ... Tn>
+    RM(int p, const Microsecond & period): 
+    Real_Time_Scheduler_Common(p, period, period) {}
+    
+    template<typename ... Tn>
+    RM(int p, const Microsecond & period, const Microsecond & deadline): 
+    Real_Time_Scheduler_Common(p, period, deadline) {}
+};
+
+
 // Round-Robin
 class RR: public Priority
 {

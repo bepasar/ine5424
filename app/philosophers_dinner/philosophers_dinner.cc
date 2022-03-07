@@ -1,10 +1,10 @@
 // EPOS Scheduler Test Program
 
-#include <time.h>
-#include <synchronizer.h>
-#include <process.h>
+#include <stubs/time.h>
+#include <stubs/synchronizer.h>
+#include <stubs/process.h>
 
-using namespace EPOS;
+using namespace EPOS::S;
 
 const int iterations = 10;
 

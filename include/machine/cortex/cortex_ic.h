@@ -94,6 +94,7 @@ private:
 
     // Physical handlers
     static void entry() __attribute__ ((naked));
+    static void irq() __attribute__ ((naked));
     static void prefetch_abort() __attribute__ ((naked));
     static void undefined_instruction() __attribute__ ((naked));
     static void software_interrupt() __attribute__ ((naked));

@@ -16,20 +16,23 @@ Scheduler_Timer * Thread::_timer;
 Scheduler<Thread> Thread::_scheduler;
 
 
-void Thread::constructor_prologue(unsigned int stack_size)
+void Thread::constructor_prologue(unsigned int stack_size, unsigned int user_stack_size)
 {
     lock();
 
     _thread_count++;
     _scheduler.insert(this);
 
+    _stack_segment = new (SYSTEM) Segment(user_stack_size);
     _stack = new (SYSTEM) char[stack_size];
+    _user_stack = this->task()->address_space()->attach(_stack_segment);
 }
 
 
 void Thread::constructor_epilogue(Log_Addr entry, unsigned int stack_size)
 {
-    db<Thread>(TRC) << "Thread(entry=" << entry
+    db<Thread>(TRC) << "Thread(task=" << _task
+                    << ",entry=" << entry
                     << ",state=" << _state
                     << ",priority=" << _link.rank()
                     << ",stack={b=" << reinterpret_cast<void *>(_stack)
@@ -38,6 +41,9 @@ void Thread::constructor_epilogue(Log_Addr entry, unsigned int stack_size)
                     << "," << *_context << "}) => " << this << endl;
 
     assert((_state != WAITING) && (_state != FINISHING)); // invalid states
+
+    if(multitask)
+        _task->insert(this);
 
     if((_state != READY) && (_state != RUNNING))
         _scheduler.suspend(this);
@@ -85,6 +91,9 @@ Thread::~Thread()
     case FINISHING: // Already called exit()
         break;
     }
+
+    if(multitask)
+        _task->remove(this);
 
     if(_joining)
         _joining->resume();
@@ -343,6 +352,11 @@ void Thread::dispatch(Thread * prev, Thread * next, bool charge)
             db<Thread>(INF) << "Thread::dispatch:prev={" << prev << ",ctx=" << tmp << "}" << endl;
         }
         db<Thread>(INF) << "Thread::dispatch:next={" << next << ",ctx=" << *next->_context << "}" << endl;
+
+        if(multitask && (next->_task != prev->_task)) {
+            next->_task->activate();
+            db<Thread>(INF) << "Thread::dispatch:task_switch(prev=" << prev->_task << ",next=" << next->_task << ")" << endl;
+        }
 
         // The non-volatile pointer to volatile pointer to a non-volatile context is correct
         // and necessary because of context switches, but here, we are locked() and

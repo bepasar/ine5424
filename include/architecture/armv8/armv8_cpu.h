@@ -292,6 +292,7 @@ public:
 
     static void iret() { ASM(".ret: br lr"); }
 
+    static Reg mode() { Reg r; ASM("mrs %0, currentel" : "=r"(r) :); return r; }        // read currentel
     static void mode(unsigned int m) { ASM("msr currentel, %0" : : "r"(m) : "cc"); }
 
     static void svc_enter(unsigned int from, bool ret = true) {}
@@ -339,6 +340,9 @@ public:
 
     static Reg elr_el1() { Reg r; ASM("mrs %0, elr_el1" : "=r"(r) :); return r; }
     static void elr_el1(Reg r) { ASM("msr elr_el1, %0" : : "r"(r) :); }
+
+    static Reg esr_el1() { Reg r; ASM("mrs %0, esr_el1" : "=r"(r) :); return r; }
+    static Reg esr_el2() { Reg r; ASM("mrs %0, esr_el2" : "=r"(r) :); return r; }
 
     static Reg id_aa64mmfr0() {Reg r; ASM("mrs %0, id_aa64mmfr0_el1" : "=r"(r) :); return r;}
 
@@ -485,7 +489,14 @@ public:
     template<typename ... Tn>
     static Log_Addr init_user_stack(Log_Addr usp, void (* exit)(), Tn ... an) { return usp; }
 
-    static void syscall(void * message);
+    static void syscall(void * message)
+    {
+        ASM(" str x0, [sp, #-8]! \t\n"
+            " mov x0, %0" : : "r"(message) :);
+        svc();
+        ASM(" ldr x0, [sp], #8");
+    }
+
     static void syscalled();
 
     using CPU_Common::htole64;

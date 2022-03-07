@@ -4,6 +4,7 @@
 #include <machine/ic.h>
 #include <machine/timer.h>
 #include <process.h>
+#include <interface/agent.h>
 
 #ifdef __cortex_a__
 
@@ -112,7 +113,6 @@ void IC::reserved()
 void IC::fiq()
 {
     CPU::svc_enter(CPU::MODE_FIQ, false); // enter SVC to capture LR (the return address) in r1
-    db<IC>(ERR) << "IC::FIQ()" << endl;
     CPU::svc_stay();  // undo the context saving of svc_enter(), but do not leave SVC
     kill();
 }
@@ -126,10 +126,109 @@ void IC::kill()
 #else
 
 extern "C" { void _dispatch(unsigned int) __attribute__ ((alias("_ZN4EPOS1S2IC8dispatchEj"))); }
+extern "C" { void irq() __attribute__ ((nothrow));}
+extern "C" { void software_interrupt() __attribute__ ((nothrow));}
 
 void IC::entry()
 {
+	Machine::panic();
 }
+
+void IC::irq()
+{
+    ASM("   stp     x29, x30, [sp,#-16]!        \t\n\
+            stp     x27, x28, [sp,#-16]!        \t\n\
+            stp     x25, x26, [sp,#-16]!        \t\n\
+            stp     x23, x24, [sp,#-16]!        \t\n\
+            stp     x21, x22, [sp,#-16]!        \t\n\
+            stp     x19, x20, [sp,#-16]!        \t\n\
+            stp     x17, x18, [sp,#-16]!        \t\n\
+            stp     x15, x16, [sp,#-16]!        \t\n\
+            stp     x13, x14, [sp,#-16]!        \t\n\
+            stp     x11, x12, [sp,#-16]!        \t\n\
+            stp     x9, x10, [sp,#-16]!         \t\n\
+            stp     x7, x8, [sp,#-16]!          \t\n\
+            stp     x5, x6, [sp,#-16]!          \t\n\
+            stp     x3, x4, [sp,#-16]!          \t\n\
+            stp     x1, x2, [sp,#-16]!          \t\n\
+            str     x0, [sp,#-8]!               \t\n\
+            mrs     x30, spsr_el1               \t\n\
+            mrs     x29, elr_el1                \t\n\
+            stp     x29, x30, [sp,#-16]!        \t\n\
+            bl      _dispatch                   \t\n\
+            ldp     x29, x30, [sp], #16         \t\n\
+            msr     elr_el1, x29                \t\n\
+            msr     spsr_el1, x30               \t\n\
+            ldr     x0, [sp], #8                \t\n\
+            ldp     x1, x2, [sp], #16           \t\n\
+            ldp     x3, x4, [sp], #16           \t\n\
+            ldp     x5, x6, [sp], #16           \t\n\
+            ldp     x7, x8, [sp], #16           \t\n\
+            ldp     x9, x10, [sp], #16          \t\n\
+            ldp     x11, x12, [sp], #16         \t\n\
+            ldp     x13, x14, [sp], #16         \t\n\
+            ldp     x15, x16, [sp], #16         \t\n\
+            ldp     x17, x18, [sp], #16         \t\n\
+            ldp     x19, x20, [sp], #16         \t\n\
+            ldp     x21, x22, [sp], #16         \t\n\
+            ldp     x23, x24, [sp], #16         \t\n\
+            ldp     x25, x26, [sp], #16         \t\n\
+            ldp     x27, x28, [sp], #16         \t\n\
+            ldp     x29, x30, [sp], #16         \t");
+}
+
+void IC::software_interrupt()
+{
+    // primeiro testa se exception class é de SVC
+    ASM("   stp     x29, x30, [sp,#-16]!        \t\n\
+            mrs     x29, esr_el1                \t\n\
+            lsr     x30, x29, #26               \t\n\
+            cmp     x30, #21                    \t\n\
+            b.ne    _int_entry                  \t\n\
+                                                \t\n\
+            stp     x27, x28, [sp,#-16]!        \t\n\
+            stp     x25, x26, [sp,#-16]!        \t\n\
+            stp     x23, x24, [sp,#-16]!        \t\n\
+            stp     x21, x22, [sp,#-16]!        \t\n\
+            stp     x19, x20, [sp,#-16]!        \t\n\
+            stp     x17, x18, [sp,#-16]!        \t\n\
+            stp     x15, x16, [sp,#-16]!        \t\n\
+            stp     x13, x14, [sp,#-16]!        \t\n\
+            stp     x11, x12, [sp,#-16]!        \t\n\
+            stp     x9, x10, [sp,#-16]!         \t\n\
+            stp     x7, x8, [sp,#-16]!          \t\n\
+            stp     x5, x6, [sp,#-16]!          \t\n\
+            stp     x3, x4, [sp,#-16]!          \t\n\
+            stp     x1, x2, [sp,#-16]!          \t\n\
+            str     x0, [sp,#-8]!               \t\n\
+            mrs     x30, spsr_el1               \t\n\
+            mrs     x29, elr_el1                \t\n\
+            stp     x29, x30, [sp,#-16]!        \t");
+
+    void * message = reinterpret_cast<void *>(CPU::r0());
+    Agent::software_interrupt(message);
+
+    ASM("   ldp     x29, x30, [sp], #16         \t\n\
+            msr     elr_el1, x29                \t\n\
+            msr     spsr_el1, x30               \t\n\
+            ldr     x0, [sp], #8                \t\n\
+            ldp     x1, x2, [sp], #16           \t\n\
+            ldp     x3, x4, [sp], #16           \t\n\
+            ldp     x5, x6, [sp], #16           \t\n\
+            ldp     x7, x8, [sp], #16           \t\n\
+            ldp     x9, x10, [sp], #16          \t\n\
+            ldp     x11, x12, [sp], #16         \t\n\
+            ldp     x13, x14, [sp], #16         \t\n\
+            ldp     x15, x16, [sp], #16         \t\n\
+            ldp     x17, x18, [sp], #16         \t\n\
+            ldp     x19, x20, [sp], #16         \t\n\
+            ldp     x21, x22, [sp], #16         \t\n\
+            ldp     x23, x24, [sp], #16         \t\n\
+            ldp     x25, x26, [sp], #16         \t\n\
+            ldp     x27, x28, [sp], #16         \t\n\
+            ldp     x29, x30, [sp], #16         \t");
+}
+
 
 #endif    
 

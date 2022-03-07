@@ -1054,32 +1054,36 @@ void _vector_table()
                         .balign 128                                             \t\n\
         .sync_curr_sp0: str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, .software_interrupt                                      \t\n\
                         blr x29                                                 \t\n\
+                        ldr x29, [sp], #8                                       \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
                                                                                 \t\n\
                         .balign 128                                             \t\n\
         .irq_curr_sp0:  str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, .irq                                           \t\n\
                         blr x29                                                 \t\n\
+                        ldr x29, [sp], #8                                       \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
                                                                                 \t\n\
                         .balign 128                                             \t\n\
         .fiq_curr_sp0:  str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, .ic_entry                                           \t\n\
                         blr x29                                                 \t\n\
+                        ldr x29, [sp], #8                                       \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
                                                                                 \t\n\
                         .balign 128                                             \t\n\
         .error_curr_sp0:str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, .ic_entry                               \t\n\
                         blr x29                                                 \t\n\
+                        ldr x29, [sp], #8                                       \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
                                                                                 \t\n\
@@ -1087,24 +1091,27 @@ void _vector_table()
                         .balign 128                                             \t\n\
         .sync_curr_spx: str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, .software_interrupt                                      \t\n\
                         blr x29                                                 \t\n\
+                        ldr x29, [sp], #8                                       \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
                                                                                 \t\n\
                         .balign 128                                             \t\n\
         .irq_curr_spx:  str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, .irq                                           \t\n\
                         blr x29                                                 \t\n\
+                        ldr x29, [sp], #8                                       \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
                                                                                 \t\n\
                         .balign 128                                             \t\n\
         .fiq_curr_spx:  str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, .ic_entry                                           \t\n\
                         blr x29                                                 \t\n\
+                        ldr x29, [sp], #8                                       \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
                                                                                 \t\n\
@@ -1113,6 +1120,7 @@ void _vector_table()
                         str x29, [sp,#-8]!                                      \t\n\
                         ldr x29, .ic_entry                                      \t\n\
                         blr x29                                                 \t\n\
+                        ldr x29, [sp], #8                                       \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
                                                                                 \t\n\
@@ -1120,24 +1128,27 @@ void _vector_table()
                         .balign 128                                             \t\n\
         .sync_lower64:  str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, .software_interrupt                                      \t\n\
                         blr x29                                                 \t\n\
+                        ldr x29, [sp], #8                                       \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
                                                                                 \t\n\
                         .balign 128                                             \t\n\
         .irq_lower64:   str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, .irq                              \t\n\
                         blr x29                                                 \t\n\
+                        ldr x29, [sp], #8                                       \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
                                                                                 \t\n\
                         .balign 128                                             \t\n\
         .fiq_lower64:   str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, .ic_entry                                           \t\n\
                         blr x29                                                 \t\n\
+                        ldr x29, [sp], #8                                       \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
                                                                                 \t\n\
@@ -1146,6 +1157,7 @@ void _vector_table()
                         str x29, [sp,#-8]!                                      \t\n\
                         ldr x29, .ic_entry                                      \t\n\
                         blr x29                                                 \t\n\
+                        ldr x29, [sp], #8                                       \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
                                                                                 \t\n\
@@ -1155,22 +1167,25 @@ void _vector_table()
                         str x29, [sp,#-8]!                                      \t\n\
                         ldr x29, .ic_entry                                      \t\n\
                         blr x29                                                 \t\n\
+                        ldr x29, [sp], #8                                       \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
                                                                                 \t\n\
                         .balign 128                                             \t\n\
         .irq_lower32:   str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, .irq                                           \t\n\
                         blr x29                                                 \t\n\
+                        ldr x29, [sp], #8                                       \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
                                                                                 \t\n\
                         .balign 128                                             \t\n\
         .fiq_lower32:   str x30, [sp,#-8]!                                      \t\n\
                         str x29, [sp,#-8]!                                      \t\n\
-                        ldr x29, .ic_entry                                      \t\n\
+                        ldr x29, .ic_entry                                           \t\n\
                         blr x29                                                 \t\n\
+                        ldr x29, [sp], #8                                       \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
                                                                                 \t\n\
@@ -1179,11 +1194,15 @@ void _vector_table()
                         str x29, [sp,#-8]!                                      \t\n\
                         ldr x29, .ic_entry                                      \t\n\
                         blr x29                                                 \t\n\
+                        ldr x29, [sp], #8                                       \t\n\
                         ldr x30, [sp], #8                                       \t\n\
                         eret                                                    \t\n\
                                                                                 \t\n\
                         .balign 128                                             \t\n\
-        .ic_entry: .dword 0x0                                                   \t");
+        .ic_entry: .dword 0x0                                                   \t\n\
+        .irq:      .dword 0x0                                                   \t\n\
+        .software_interrupt:    .dword 0x0                                          \t");
+        
 }
 
 void _reset()

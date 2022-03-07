@@ -1,11 +1,11 @@
 // EPOS Synchronizer Component Test Program
 
 #include <machine.h>
-#include <time.h>
-#include <synchronizer.h>
-#include <process.h>
+#include <stubs/time.h>
+#include <stubs/synchronizer.h>
+#include <stubs/process.h>
 
-using namespace EPOS;
+using namespace EPOS::S::U;
 
 const int iterations = 128;
 

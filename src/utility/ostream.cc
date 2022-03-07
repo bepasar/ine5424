@@ -39,6 +39,9 @@ int OStream::utoa(unsigned int v, char * s, unsigned int i)
             s[i++] = 'x';
     }
 
+    _base = 10; // this change avoid some randorm cout hangs
+                // as stated at: https://moodle.ufsc.br/mod/forum/discuss.php?d=973383#p1415896
+
     for(j = v; j != 0; i++, j /= _base);
     for(j = 0; v != 0; j++, v /= _base)
         s[i - 1 - j] = _digits[v % _base];
